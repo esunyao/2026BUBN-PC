@@ -39,6 +39,7 @@ export interface MemoryParticipant {
   color: string
 }
 export interface MemoryEvent {
+  copySource?: 'local' | 'deepseek'
   startAt?: string
   endAt?: string
   id: string
@@ -69,6 +70,9 @@ export interface Moment {
   contributionIds: string[]
 }
 export interface Contribution {
+  generatedCaption?: string
+  captionSource?: 'local' | 'deepseek'
+  originalFileId?: string
   visibility?: 'private' | 'event-members' | 'public'
   participantTags?: string[]
   tagsConsent?: boolean

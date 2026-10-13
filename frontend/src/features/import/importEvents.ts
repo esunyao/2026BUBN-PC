@@ -82,6 +82,9 @@ export function buildImportedEvents(
       patch.contributions.push({
         id: photo.id,
         fileId: photo.id,
+        originalFileId: photo.displayBlob ? photo.id + '-original' : undefined,
+        generatedCaption: photo.generatedCaption,
+        captionSource: photo.captionSource,
         kind: 'photo',
         mediaUrl: photo.url,
         momentId: moment.id,
@@ -105,7 +108,8 @@ export function buildImportedEvents(
     patch.events.push({
       id: eventId,
       title: group.title.trim(),
-      subtitle: '根据照片线索整理 · 已由你确认',
+      subtitle: group.description?.trim() || '根据照片线索整理 · 已由你确认',
+      copySource: group.copySource,
       type: group.type ?? 'trip',
       sceneIds: scenes.map((s) => s.scene.id),
       participantIds: [participantId],

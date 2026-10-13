@@ -399,6 +399,10 @@ const dialogTitle = computed(
           >
           <h1>{{ event?.title }}</h1>
           <p>{{ event?.subtitle }}</p>
+          <small v-if="event?.copySource"
+            >{{ event.copySource === 'deepseek' ? 'DeepSeek' : '本地' }} 自动策展简介 ·
+            已确认草稿</small
+          >
         </div>
         <span class="chapter-count">{{ eventScenes.length }}<small>个记忆章节</small></span>
       </div>
@@ -688,7 +692,7 @@ const dialogTitle = computed(
                 :key="editor.id"
                 :disabled="busy"
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                 @change="editor.file = ($event.target as HTMLInputElement).files?.[0]"
             /></label>
           </div>

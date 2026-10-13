@@ -3,6 +3,7 @@ import type { ImportResult, Island, Photo } from '../../shared/types'
 import { nearestIsland, validGps } from '../../shared/lib/geo'
 import { islandPosition } from '../../shared/lib/layout'
 import { filenameCaption } from '../../shared/lib/photoFormat'
+import { heicPreview, isHeicFile } from './heicPreview'
 
 async function verifyImage(url: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -24,12 +25,23 @@ export async function importPhotos(
     let url: string | undefined
     try {
       if (
-        !/\.(jpe?g|png|webp)$/i.test(file.name) ||
-        (file.type && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))
+        !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name) ||
+        (file.type &&
+          ![
+            'image/jpeg',
+            'image/png',
+            'image/webp',
+            'image/heic',
+            'image/heif',
+            'image/heic-sequence',
+            'image/heif-sequence',
+            'application/octet-stream',
+          ].includes(file.type))
       ) {
-        throw new Error('请选择 JPEG、PNG 或 WebP 图片')
+        throw new Error('请选择 JPEG、PNG、WebP 或 HEIC 图片')
       }
-      url = URL.createObjectURL(file)
+      const displayBlob = isHeicFile(file) ? await heicPreview(file) : undefined
+      url = URL.createObjectURL(displayBlob ?? file)
       await verifyImage(url)
       // A displayable picture remains usable when metadata is absent or unreadable.
       const metadata = await exifr.parse(file).catch(() => undefined)
@@ -63,6 +75,7 @@ export async function importPhotos(
         islandId: island?.id ?? null,
         importOrder: startOrder + index,
         source: 'import',
+        ...(displayBlob ? { displayBlob } : {}),
         ...(gps ? { gps } : {}),
         ...(capturedAt === undefined ? {} : { capturedAt }),
       }

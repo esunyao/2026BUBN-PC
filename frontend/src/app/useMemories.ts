@@ -387,7 +387,11 @@ export function useMemories() {
       if (!photo) throw new Error(result.failures[0] ?? '无法读取图片')
       try {
         const fileId = crypto.randomUUID()
-        await storeMedia(fileId, input.file)
+        await storeMedia(fileId, photo.displayBlob ?? input.file)
+        if (photo.displayBlob) {
+          c.originalFileId = fileId + '-original'
+          await storeMedia(c.originalFileId, input.file)
+        }
         c.fileId = fileId
       } catch {
         URL.revokeObjectURL(photo.url)
@@ -495,9 +499,14 @@ export function useMemories() {
       throw new Error('请选择记录者。')
     const patch = buildImportedEvents(photos, groups, participantId, presets.neutral)
     const selected = photos.filter((p) => patch.contributions.some((c) => c.id === p.id))
-    const urls = new Map(selected.map((p) => [p.id, URL.createObjectURL(p.file)]))
+    const urls = new Map(selected.map((p) => [p.id, URL.createObjectURL(p.displayBlob ?? p.file)]))
     try {
-      await storeMediaBatch(selected.map((p) => ({ id: p.id, file: p.file })))
+      await storeMediaBatch(
+        selected.flatMap((p) => [
+          { id: p.id, file: p.displayBlob ?? p.file },
+          ...(p.displayBlob ? [{ id: p.id + '-original', file: p.file }] : []),
+        ]),
+      )
     } catch {
       urls.forEach((url) => URL.revokeObjectURL(url))
       throw new Error('照片保存失败；候选事件未提交，请检查浏览器空间后重试。')

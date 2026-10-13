@@ -7,6 +7,9 @@ export interface AnalyzedPhoto extends GroupPhoto {
   url: string
   timeSource: 'exif' | 'user' | 'unknown'
   visualSource?: string
+  displayBlob?: Blob
+  generatedCaption?: string
+  captionSource?: 'local' | 'deepseek'
 }
 export const visualModel = 'MobileNetV3 Small 0.75 / MediaPipe 1'
 export async function loadVisualModel(): Promise<ImageEmbedder> {
@@ -44,8 +47,8 @@ export async function analyzePhotos(
   signal: AbortSignal,
   progress: (message: string) => void,
 ): Promise<{ photos: AnalyzedPhoto[]; failures: string[] }> {
-  if (files.length > 60 || files.reduce((sum, f) => sum + f.size, 0) > 120 * 1024 * 1024)
-    throw new Error('每批最多 60 张、合计 120 MB，请分批整理。')
+  if (files.length > 500 || files.reduce((sum, f) => sum + f.size, 0) > 2 * 1024 * 1024 * 1024)
+    throw new Error('当前浏览器每次最多整理 500 张、合计 2 GB。')
   const photos: AnalyzedPhoto[] = [],
     failures: string[] = []
   let model: ImageEmbedder | undefined
@@ -62,8 +65,8 @@ export async function analyzePhotos(
     for (const [index, file] of files.entries()) {
       if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
       progress(`正在整理 ${index + 1} / ${files.length}：${file.name}`)
-      if (file.size > 12 * 1024 * 1024) {
-        failures.push(file.name + '：超过 12 MB')
+      if (file.size > 30 * 1024 * 1024) {
+        failures.push(file.name + '：超过 30 MB')
         continue
       }
       const result = await importPhotos([file], personId, [], index)

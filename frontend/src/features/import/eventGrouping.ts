@@ -17,6 +17,8 @@ export interface EventCandidate {
   needsReview: boolean
   manualStart?: string
   type?: 'trip' | 'longActivity'
+  description?: string
+  copySource?: 'local' | 'deepseek'
 }
 export interface GroupingOptions {
   gapHours: number

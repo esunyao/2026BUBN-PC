@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import type { MemoryParticipant } from '../../shared/memoryTypes'
 import { analyzePhotos, type AnalyzedPhoto } from './photoAnalysis'
 import { defaultGrouping, groupPhotos, type EventCandidate } from './eventGrouping'
+import { generateChapterCopy } from './chapterDrafts'
 const props = defineProps<{
   participants: MemoryParticipant[]
   saving: boolean
@@ -16,6 +17,7 @@ const vision = ref(true),
   analyzing = ref(false),
   status = ref(''),
   error = ref('')
+const useAI = ref(true)
 const photos = ref<AnalyzedPhoto[]>([]),
   groups = ref<EventCandidate[]>([]),
   failures = ref<string[]>([])
@@ -59,7 +61,8 @@ async function choose(event: Event) {
     )
     photos.value = result.photos
     failures.value = result.failures
-    regroup()
+    groups.value = groupPhotos(photos.value, options)
+    await writeCopy()
   } catch (e) {
     error.value =
       e instanceof Error && e.name === 'AbortError'
@@ -72,8 +75,31 @@ async function choose(event: Event) {
     status.value = ''
   }
 }
-function regroup() {
+async function writeCopy() {
+  const result = await generateChapterCopy(
+    groups.value,
+    photos.value,
+    '共同记忆',
+    controller!.signal,
+    (message) => (status.value = message),
+    useAI.value,
+  )
+  groups.value = result.groups
+  if (result.failures)
+    failures.value.push(`${result.failures} 个事件的 DeepSeek 文案暂不可用，已使用本地草稿。`)
+}
+async function regroup() {
+  controller = new AbortController()
+  analyzing.value = true
   groups.value = groupPhotos(photos.value, options)
+  try {
+    await writeCopy()
+  } catch {
+    error.value = '生成已取消，照片仍保留在候选列表。'
+  } finally {
+    analyzing.value = false
+    status.value = ''
+  }
 }
 function move(photoId: string, targetId: string) {
   groups.value.forEach((g) => (g.photoIds = g.photoIds.filter((id) => id !== photoId)))
@@ -134,15 +160,19 @@ function confirm() {
           >选择照片<input
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             @change="choose"
         /></label>
       </div>
       <label class="import-check"
         ><input v-model="vision" type="checkbox" />用画面相似度辅助整理（在此浏览器分析）</label
       >
+      <label class="import-check"
+        ><input v-model="useAI" type="checkbox" />用 DeepSeek 自动写标题和简介</label
+      >
       <p class="muted">
-        每批最多 60 张、合计 120 MB，单张不超过 12 MB。照片不上传；画面相似不代表同一事件。没有 EXIF
+        支持 HEIC。每批最多 500 张、合计 2 GB，单张不超过 30 MB。开启 DeepSeek
+        时每个事件仅发送最多两张压缩缩略图和日期，不发送原图或精确 GPS。没有 EXIF
         的时间和位置会明确留待确认。
       </p>
     </fieldset>
@@ -172,7 +202,7 @@ function confirm() {
             </select></label
           >
         </div>
-        <button @click="regroup">按当前线索重新分组</button>
+        <button @click="regroup">重新归类并生成标题</button>
         <p class="muted">
           会重置手动分组和事件标题。照片时间保持你刚才的修改；跨日期默认分开，跨日旅行可手动合并。EXIF
           未附时区时按设备本地时间读取，可在下方纠正。
@@ -185,6 +215,11 @@ function confirm() {
       <fieldset :disabled="working" class="import-candidates">
         <article v-for="group in groups" :key="group.id" class="import-candidate">
           <label>事件名称<input v-model="group.title" maxlength="80" /></label>
+          <label>事件简介<textarea v-model="group.description" rows="3" maxlength="500" /></label>
+          <small
+            >{{ group.copySource === 'deepseek' ? 'DeepSeek 生成' : '本地生成' }} ·
+            可编辑草稿，不代表拍摄者原文</small
+          >
           <label
             >事件类型<select v-model="group.type">
               <option :value="undefined">旅行 / 一次活动</option>
@@ -293,6 +328,15 @@ select {
   background: #fff9;
   border-radius: 4px;
   color: inherit;
+}
+textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #b99c7b60;
+  background: #fff9;
+  border-radius: 4px;
+  color: inherit;
+  resize: vertical;
 }
 .import-intro {
   font-family: var(--serif);

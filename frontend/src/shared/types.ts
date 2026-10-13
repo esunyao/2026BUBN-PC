@@ -24,6 +24,7 @@ export interface Island {
 }
 
 export interface Photo {
+  displayBlob?: Blob
   id: string
   url: string
   filename: string
