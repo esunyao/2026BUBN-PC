@@ -14,6 +14,9 @@ import MemoryDialog from '../features/hero/MemoryDialog.vue'
 import MemoryConstellation from '../features/hero/MemoryConstellation.vue'
 import ThenAndNow from '../features/hero/ThenAndNow.vue'
 import PerspectiveExperience from '../features/hero/PerspectiveExperience.vue'
+import PhotoEventImport from '../features/import/PhotoEventImport.vue'
+import type { AnalyzedPhoto } from '../features/import/photoAnalysis'
+import type { EventCandidate } from '../features/import/eventGrouping'
 const app = useMemories()
 const {
   data,
@@ -255,6 +258,17 @@ async function save() {
     busy.value = false
   }
 }
+async function savePhotoEvents(photos: AnalyzedPhoto[], groups: EventCandidate[], person: string) {
+  busy.value = true
+  editError.value = ''
+  try {
+    await app.saveImportedEvents(photos, groups, person)
+  } catch (error) {
+    editError.value = error instanceof Error ? error.message : '保存失败'
+  } finally {
+    busy.value = false
+  }
+}
 async function archive(e: Event) {
   const input = e.target as HTMLInputElement,
     file = input.files?.[0]
@@ -266,6 +280,10 @@ async function archive(e: Event) {
     }
   }
   input.value = ''
+}
+function startPhotoImport() {
+  editError.value = ''
+  open('import-photos')
 }
 function create() {
   if (createTitle.value.trim()) {
@@ -283,6 +301,7 @@ const dialogTitle = computed(
       constellation: '记忆星图',
       edit: '留下一段记忆',
       create: '开启共同的篇章',
+      'import-photos': '把照片整理成事件',
     })[state.viewMode],
 )
 </script>
@@ -309,6 +328,7 @@ const dialogTitle = computed(
           @click="discovery.enter()"
         >
           记忆发现 / Discover</button
+        ><button @click="startPhotoImport">照片归类</button
         ><button @click="archiveInput?.click()">导入存档</button
         ><button @click="exportArchive">导出</button
         ><button class="header-create" @click="open(state.page === 'scene' ? 'edit' : 'create')">
@@ -602,6 +622,13 @@ const dialogTitle = computed(
           @finding="openGraphFinding"
           @jump="jump"
           @moment="goToGraphMoment"
+        />
+        <PhotoEventImport
+          v-else-if="state.viewMode === 'import-photos'"
+          :participants="data.participants"
+          :saving="busy"
+          :save-error="editError"
+          @save="savePhotoEvents"
         />
         <form v-else-if="state.viewMode === 'edit'" class="memory-editor" @submit.prevent="save">
           <label

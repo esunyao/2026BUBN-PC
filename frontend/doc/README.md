@@ -7,3 +7,5 @@
 新增 discovery/ 规则与发现页，从应用统一贡献状态派生 Findings；无照片时段以原文 Moment 表示。后端见 [契约](../../BACKEND_COLLABORATION.md)。
 
 [2026-10-13 前端交付说明](DELIVERY-2026-10-13.md) · [简单 OpenAPI](2026-10-13.openapi.json)。
+
+[照片事件归类 · 2026-10-13](PHOTO-GROUPING-2026-10-13.md)：批量导入、解释性分组、本地轻量画面分析与人工修正。

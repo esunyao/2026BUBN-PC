@@ -1,4 +1,18 @@
 const NAME = 'shared-memories-media'
+export async function storeMediaBatch(files: Array<{ id: string; file: Blob }>): Promise<void> {
+  const db = await database()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('photos', 'readwrite')
+      for (const item of files) tx.objectStore('photos').put(item.file, item.id)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+      tx.onabort = () => reject(tx.error)
+    })
+  } finally {
+    db.close()
+  }
+}
 async function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(NAME, 1)
