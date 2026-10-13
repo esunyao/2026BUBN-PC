@@ -1,3 +1,50 @@
 spring:
   application:
-    name: Archipelago
+    name: archipelago
+  config:
+    import: optional:nacos:archipelago.yaml?refreshEnabled=false
+  cloud:
+    nacos:
+      config:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:}
+        password: ${NACOS_PASSWORD:}
+        timeout: ${NACOS_TIMEOUT:3000}
+        refresh-enabled: false
+    discovery:
+      enabled: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+world:
+  database:
+    path: ${WORLD_DATABASE_PATH:./data/world.db}
+  auth:
+    issuer: ${WORLD_AUTH_ISSUER:http://localhost:8080}
+    redirect-uri: ${WORLD_AUTH_REDIRECT_URI:http://localhost:5173/auth/callback}
+    post-logout-redirect-uri: ${WORLD_AUTH_POST_LOGOUT_REDIRECT_URI:http://localhost:5173/}
+    allowed-origin: ${WORLD_AUTH_ALLOWED_ORIGIN:http://localhost:5173}
+    key-path: ${WORLD_AUTH_KEY_PATH:./data/signing-key.json}
+    demo-username: ${WORLD_DEMO_USERNAME:demo}
+    demo-password: ${WORLD_DEMO_PASSWORD:}
+  storage:
+    enabled: ${WORLD_STORAGE_ENABLED:false}
+    endpoint: ${WORLD_STORAGE_ENDPOINT:}
+    public-endpoint: ${WORLD_STORAGE_PUBLIC_ENDPOINT:}
+    access-key: ${WORLD_STORAGE_ACCESS_KEY:}
+    secret-key: ${WORLD_STORAGE_SECRET_KEY:}
+    bucket: ${WORLD_STORAGE_BUCKET:}
+    region: ${WORLD_STORAGE_REGION:us-east-1}
+    max-file-bytes: ${WORLD_STORAGE_MAX_FILE_BYTES:20971520}
+    upload-ttl: ${WORLD_STORAGE_UPLOAD_TTL:5m}
+    download-ttl: ${WORLD_STORAGE_DOWNLOAD_TTL:15m}
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
