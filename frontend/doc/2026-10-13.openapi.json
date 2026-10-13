@@ -12,7 +12,9 @@
   ],
   "security": [
     {
-      "oauth2": ["world"]
+      "oauth2": [
+        "world"
+      ]
     }
   ],
   "paths": {
@@ -24,6 +26,107 @@
     },
     "/api/v1/events/{eventId}": {
       "$ref": "../../backend/Archipelago/doc/openapi.yaml#/paths/~1api~1v1~1events~1{eventId}"
+    },
+    "/api/frontend/chapter-copy": {
+      "post": {
+        "summary": "本机开发服务的 DeepSeek 策展文案接口",
+        "description": "仅 Vite dev；同源及回环请求；生产由既有后端适配，不属于已实现的后端 API。最多12事件，每事件2张512px JPEG缩略图；失败时客户端回退本地草稿。",
+        "servers": [
+          {
+            "url": "http://127.0.0.1:5173"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "chapterTitle",
+                  "groups"
+                ],
+                "properties": {
+                  "chapterTitle": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "groups": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "count",
+                        "date",
+                        "samples"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "count": {
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 500
+                        },
+                        "date": {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        "samples": {
+                          "type": "array",
+                          "maxItems": 2,
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "image"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "image": {
+                                "type": "string",
+                                "maxLength": 150000,
+                                "description": "JPEG data URL"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{source: deepseek, output: {groups: [{id,title,description,captions:[{id,text}]}]}}"
+          },
+          "400": {
+            "description": "无效输入"
+          },
+          "403": {
+            "description": "非本机同源请求"
+          },
+          "429": {
+            "description": "并发限制"
+          },
+          "503": {
+            "description": "服务未配置或上游失败，前端回退本地"
+          },
+          "502": {
+            "description": "上游调用或JSON解析失败，客户端回退本地"
+          }
+        }
+      }
     }
   },
   "components": {

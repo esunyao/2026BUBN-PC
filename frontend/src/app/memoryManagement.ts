@@ -148,6 +148,8 @@ export function manageMemory(
         )
       }
       record.writtenText = action.text.slice(0, 2000)
+      if (record.generatedCaption !== clean(action.generatedCaption, 500))
+        record.captionSource = 'user'
       record.generatedCaption = clean(action.generatedCaption, 500)
       record.analysis = {
         ...record.analysis,

@@ -186,6 +186,17 @@ function openManager() {
   editError.value = ''
   open('manage')
 }
+async function fullBackup() {
+  if (busy.value) return
+  busy.value = true
+  try {
+    await app.exportFullArchive()
+  } catch (error) {
+    notice.value = error instanceof Error ? error.message : '备份失败。'
+  } finally {
+    busy.value = false
+  }
+}
 function manage(action: MemoryManagementAction) {
   editError.value = ''
   try {
@@ -371,7 +382,9 @@ const dialogTitle = computed(
         ><button v-if="event && state.page !== 'home'" @click="openManager">整理篇章</button
         ><button @click="startPhotoImport">导入篇章照片</button
         ><button @click="archiveInput?.click()">导入存档</button
-        ><button @click="exportArchive">导出</button
+        ><button @click="exportArchive">导出文字</button
+        ><button :disabled="busy" @click="fullBackup">{{ busy ? '处理中…' : '备份含原图' }}</button
+        ><button v-if="app.managementUndo.value" @click="app.undoManagement">撤销上一步</button
         ><button class="header-create" @click="open(state.page === 'scene' ? 'edit' : 'create')">
           ＋ {{ state.page === 'scene' ? '留下记忆' : '创建篇章' }}
         </button>
@@ -640,7 +653,7 @@ const dialogTitle = computed(
         @speed="state.playbackSpeed = $event"
       />
       <footer class="scene-footer">
-        <span>环境随记忆展开 <small>· 本地预设，未使用 AI 识别</small></span>
+        <span>环境随记忆展开 <small>· 本地环境配方，可手动调整</small></span>
         <div class="theme-selector">
           <button :aria-pressed="!state.themeOverride" @click="state.themeOverride = ''">
             随场景</button

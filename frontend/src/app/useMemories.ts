@@ -15,6 +15,12 @@ import { isVisible } from '../features/discovery/engine'
 import { importPhotos } from '../features/import/importPhotos'
 import { manageMemory } from './memoryManagement'
 import type { MemoryManagementAction } from '../shared/memoryTypes'
+import {
+  packMemoryBackup,
+  unpackMemoryBackup,
+  portableMetadata,
+} from '../features/import/memoryBackup'
+import type { FullMemoryBackup } from '../features/import/memoryBackup'
 
 const STORAGE = 'shared-memories-v1'
 export function validateArchive(value: unknown): value is MemoryData {
@@ -41,12 +47,20 @@ export function validateArchive(value: unknown): value is MemoryData {
     scenes = ids(d.scenes),
     moments = ids(d.moments),
     contributions = ids(d.contributions)
+  const validMediaMeta = (c: Partial<Contribution>) =>
+    (c.generatedCaption === undefined || typeof c.generatedCaption === 'string') &&
+    (c.originalFileId === undefined || typeof c.originalFileId === 'string') &&
+    (c.contentHash === undefined ||
+      (typeof c.contentHash === 'string' && /^[a-f0-9]{64}$/.test(c.contentHash))) &&
+    (c.visibility === undefined || ['private', 'event-members', 'public'].includes(c.visibility)) &&
+    (c.tagsConsent === undefined || typeof c.tagsConsent === 'boolean')
   const pending = d.pendingPhotos ?? []
   if (
     !Array.isArray(pending) ||
     !unique(pending) ||
     pending.some(
       (p) =>
+        !validMediaMeta(p) ||
         !events.has(p.eventId) ||
         !people.has(p.participantId) ||
         contributions.has(p.id) ||
@@ -95,6 +109,7 @@ export function validateArchive(value: unknown): value is MemoryData {
     ) &&
     d.contributions.every(
       (c) =>
+        validMediaMeta(c) &&
         moments.has(c.momentId) &&
         people.has(c.participantId) &&
         ['photo', 'note'].includes(c.kind) &&
@@ -258,6 +273,7 @@ export function useMemories() {
     if (
       !anchor ||
       anchor.kind !== 'photo' ||
+      !['exif', 'user', 'demo'].includes(anchor.timeEvidence?.source ?? '') ||
       !['exact', 'approximate'].includes(anchor.timeEvidence?.precision ?? '')
     )
       return
@@ -316,10 +332,13 @@ export function useMemories() {
       state.activeContributionId = ''
     notice.value = '修改已保存，可撤销上一步。'
   }
-  function undoManagement() {
+  async function undoManagement() {
     if (!managementUndo.value) return
     data.value = managementUndo.value
     managementUndo.value = undefined
+    await hydrate()
+    if (state.activeEventId && !data.value.events.some((e) => e.id === state.activeEventId))
+      navigate('home')
     notice.value = '已撤销上一步编辑。'
   }
   const environmentRecipe = computed(() => ({
@@ -508,16 +527,18 @@ export function useMemories() {
     c.mood = input.mood ? [input.mood] : []
     c.isDemo = false
     c.visibility ??= 'event-members'
-    c.timeEvidence =
-      c.capturedAt !== undefined
-        ? {
-            start: new Date(c.capturedAt).toISOString(),
-            precision: input.file ? 'exact' : (c.timeEvidence?.precision ?? 'exact'),
-            source: input.file ? 'exif' : (c.timeEvidence?.source ?? 'exif'),
-          }
-        : c.kind === 'photo'
-          ? { precision: 'unknown', source: 'user' }
-          : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
+    if (input.file || c.kind === 'note' || !c.timeEvidence)
+      c.timeEvidence =
+        c.capturedAt !== undefined
+          ? {
+              start: new Date(c.capturedAt).toISOString(),
+              precision: input.file ? 'exact' : (c.timeEvidence?.precision ?? 'exact'),
+              source: input.file ? 'exif' : (c.timeEvidence?.source ?? 'exif'),
+            }
+          : c.kind === 'photo'
+            ? { precision: 'unknown', source: 'user' }
+            : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
+    managementUndo.value = JSON.parse(JSON.stringify(data.value)) as MemoryData
     if (existing) {
       data.value.links.forEach((link) => {
         if (!link.momentIds.includes(c.momentId))
@@ -537,6 +558,7 @@ export function useMemories() {
     notice.value = '已保存在这个浏览器中。'
   }
   function createEvent(title: string, type: 'trip' | 'longActivity') {
+    managementUndo.value = JSON.parse(JSON.stringify(data.value)) as MemoryData
     const id = crypto.randomUUID()
     data.value.events.push({
       id,
@@ -565,6 +587,19 @@ export function useMemories() {
     a.click()
     URL.revokeObjectURL(url)
     notice.value = '文字与配置已导出；本地照片保留在此浏览器，未包含在 JSON 中。'
+  }
+  async function exportFullArchive() {
+    notice.value = '正在读取原图，生成完整备份…'
+    const backup = await packMemoryBackup(data.value, readMedia)
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(backup)], { type: 'application/json' }),
+    )
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `shared-memories-full-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    notice.value = '完整备份已生成，包含原图、HEIC预览、待整理照片和文字。请妥善保存。'
   }
   async function saveImportedEvents(
     photos: AnalyzedPhoto[],
@@ -604,9 +639,17 @@ export function useMemories() {
       ),
       ...patch.contributions,
     ]
-      .map((c) => c.capturedAt)
+      .map((c) => {
+        const time = Date.parse(c.timeEvidence?.start ?? '')
+        return c.timeEvidence?.precision !== 'unknown' && Number.isFinite(time)
+          ? time
+          : c.timeEvidence
+            ? undefined
+            : c.capturedAt
+      })
       .filter((t): t is number => t !== undefined)
       .sort((a, b) => a - b)
+    managementUndo.value = portableMetadata(data.value)
     data.value = {
       ...data.value,
       events: data.value.events.map((e) =>
@@ -655,6 +698,12 @@ export function useMemories() {
     )
     if (!p) return
     if (p.participantId !== state.currentViewerId) throw new Error('只能整理自己的照片。')
+    if (
+      sceneId !== 'new' &&
+      !data.value.scenes.some((s) => s.id === sceneId && s.eventId === p.eventId)
+    )
+      throw new Error('请选择此篇章中的事件。')
+    managementUndo.value = JSON.parse(JSON.stringify(data.value)) as MemoryData
     let scene = data.value.scenes.find((s) => s.id === sceneId && s.eventId === p.eventId)
     if (sceneId === 'new') {
       scene = {
@@ -692,17 +741,47 @@ export function useMemories() {
     void _reason
     data.value.contributions.push({ ...photo, kind: 'photo', momentId: moment.id })
     data.value.pendingPhotos = data.value.pendingPhotos!.filter((photo) => photo.id !== id)
+    const e = data.value.events.find((e) => e.id === p.eventId)!
+    const known = data.value.contributions
+      .filter((c) =>
+        data.value.moments.some((m) => m.id === c.momentId && e.sceneIds.includes(m.sceneId)),
+      )
+      .flatMap((c) => {
+        const t = Date.parse(c.timeEvidence?.start ?? '')
+        return Number.isFinite(t) && c.timeEvidence?.precision !== 'unknown' ? [t] : []
+      })
+    if (known.length) {
+      e.startAt = new Date(Math.min(...known)).toISOString()
+      e.endAt = new Date(Math.max(...known)).toISOString()
+    }
     notice.value = '照片已收录到事件，原文件仍保留。'
   }
   async function importArchive(file: File) {
-    if (file.size > 2 * 1024 * 1024) throw new Error('存档不能超过 2 MB。')
-    const parsed: unknown = JSON.parse(await file.text())
-    if (!validateArchive(parsed)) throw new Error('存档格式或关联不正确，请使用本应用导出的 JSON。')
-    parsed.scenes.forEach((s) => (s.environment = structuredClone(presets[s.environment.preset])))
-    data.value = parsed
+    if (file.size > 140 * 1024 * 1024) throw new Error('完整备份不能超过 140 MB。')
+    const value: unknown = JSON.parse(await file.text())
+    const full =
+      value &&
+      typeof value === 'object' &&
+      'format' in value &&
+      value.format === 'shared-memories-full-v1'
+        ? (value as FullMemoryBackup)
+        : undefined
+    const parsed: unknown = full ? full.data : value
+    if (!full && file.size > 2 * 1024 * 1024) throw new Error('文字存档不能超过2 MB。')
+    if (!validateArchive(parsed) || JSON.stringify(parsed).length > 2 * 1024 * 1024)
+      throw new Error('存档格式或关联不正确，请使用本应用导出的 JSON。')
+    let restored = parsed
+    if (full) {
+      const contents = unpackMemoryBackup(full)
+      await storeMediaBatch(contents.files)
+      restored = contents.data
+    }
+    managementUndo.value = portableMetadata(data.value)
+    restored.scenes.forEach((s) => (s.environment = structuredClone(presets[s.environment.preset])))
+    data.value = restored
     await hydrate()
     navigate('home')
-    notice.value = '存档已导入。'
+    notice.value = full ? '完整备份已恢复；如需撤销，打开篇章整理。' : '存档已导入。'
   }
   async function hydrate() {
     for (const url of objectURLs) URL.revokeObjectURL(url)
@@ -766,6 +845,7 @@ export function useMemories() {
     pendingImportFiles,
     placePendingPhoto,
     exportArchive,
+    exportFullArchive,
     importArchive,
   }
 }

@@ -80,6 +80,10 @@ const activePhoto = computed(() =>
 const notes = computed(() => evidence.value.filter((c) => c.kind === 'note'))
 const name = (c: Contribution) =>
   props.data.participants.find((p) => p.id === c.participantId)?.displayName
+const timeLabel = (iso?: string) =>
+  iso
+    ? new Date(iso).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
+    : '时间未确定'
 function resetComposer() {
   text.value = ''
   mood.value = ''
@@ -222,9 +226,14 @@ function shares(f: DiscoveryFinding) {
             }}<small>照片缺席，不等于记忆缺席。</small></span
           ></button
         ><span class="eyebrow"
-          >{{ f.timeRange?.start?.slice(0, 16).replace('T', ' ') }} ·
-          {{ types.find((t) => t[0] === f.type)?.[1] }} /
-          {{ f.provenance === 'demo' ? 'DEMO · 规则发现' : '规则 / 用户记录' }}</span
+          >{{ timeLabel(f.timeRange?.start) }} · {{ types.find((t) => t[0] === f.type)?.[1] }} /
+          {{
+            f.provenance === 'demo'
+              ? 'DEMO · 规则发现'
+              : f.provenance === 'user'
+                ? '用户标注 / 规则关联'
+                : '规则 / 用户记录'
+          }}</span
         >
         <h2>
           <button @click="emit('select', f.id)">{{ f.title }} ↗</button>
@@ -241,7 +250,7 @@ function shares(f: DiscoveryFinding) {
       </article>
     </div>
     <p class="muted">
-      当前没有人脸识别或远程 AI。演示阶段标签是手工标注；真实上传使用 EXIF
+      发现关联由本地规则生成，没有人脸识别。自动文案可来自 DeepSeek 并单独标注；真实上传使用 EXIF
       或用户指定的时间。时间空白只在同一天、有界范围和可信记录之间提示，采用 Asia/Shanghai 时区。
     </p>
   </section>
@@ -258,8 +267,8 @@ function shares(f: DiscoveryFinding) {
     </div>
     <template v-if="selected.type === 'missing_piece'"
       ><p class="mode-intro">
-        {{ selected.timeRange?.start?.slice(0, 16).replace('T', ' ') }} —
-        {{ selected.timeRange?.end?.slice(11, 16) }} ·
+        {{ timeLabel(selected.timeRange?.start) }} —
+        {{ selected.timeRange?.end ? timeLabel(selected.timeRange.end) : '' }} ·
         {{ selected.timeRange?.source === 'demo' ? '演示时间范围' : '记录时间范围' }}
       </p>
       <div class="gap-context">
@@ -327,6 +336,30 @@ function shares(f: DiscoveryFinding) {
       :data="data"
       :pair="data.pairs.find((p) => p.id === selected?.pairId)!"
     />
+    <div
+      v-else-if="selected.type === 'memory_thread' || selected.type === 'behind_spotlight'"
+      class="comparison-grid"
+    >
+      <figure v-for="c in photoEvidence" :key="c.id">
+        <MemoryImage :src="c.mediaUrl" :alt="c.alt" eager />
+        <figcaption>
+          <h3>
+            {{
+              data.scenes.find(
+                (s) => s.id === data.moments.find((m) => m.id === c.momentId)?.sceneId,
+              )?.title
+            }}
+          </h3>
+          <p>{{ name(c) }} · {{ timeLabel(c.timeEvidence?.start) }}</p>
+          <p>{{ c.analysis?.objects.join('、') }}</p>
+          <blockquote v-if="c.writtenText">{{ c.writtenText }}</blockquote>
+          <p v-if="c.generatedCaption" class="muted">
+            {{ c.generatedCaption }} · 自动文案或用户修订
+          </p>
+          <button class="text-link" @click="emit('jump', c)">走进这段记忆 ↗</button>
+        </figcaption>
+      </figure>
+    </div>
     <template v-else-if="activePhoto"
       ><div class="unseen-modes">
         <button :aria-pressed="mode === 'own'" @click="mode = 'own'">{{ name(own!) }} 看见的</button

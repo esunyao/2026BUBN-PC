@@ -1,11 +1,15 @@
+<script lang="ts">
+let dialogCount = 0
+let unlockedOverflow = ''
+</script>
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, useId } from 'vue'
 const props = defineProps<{ title: string }>()
 const emit = defineEmits<{ close: [] }>()
 const panel = ref<HTMLElement>(),
   close = ref<HTMLButtonElement>()
 const previous = document.activeElement as HTMLElement | null
-const previousOverflow = document.body.style.overflow
+const titleId = `memory-dialog-${useId()}`
 function keys(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     e.preventDefault()
@@ -36,15 +40,18 @@ watch(
   },
 )
 onMounted(async () => {
+  if (!dialogCount) unlockedOverflow = document.body.style.overflow
+  dialogCount++
   document.body.style.overflow = 'hidden'
   await nextTick()
   close.value?.focus()
   window.addEventListener('keydown', keys)
 })
 onBeforeUnmount(() => {
-  document.body.style.overflow = previousOverflow
+  dialogCount = Math.max(0, dialogCount - 1)
+  if (!dialogCount) document.body.style.overflow = unlockedOverflow
   window.removeEventListener('keydown', keys)
-  if (previous?.isConnected) previous.focus()
+  if (!dialogCount && previous?.isConnected) previous.focus()
 })
 </script>
 <template>
@@ -54,12 +61,12 @@ onBeforeUnmount(() => {
       class="memory-dialog"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="dialog-title"
+      :aria-labelledby="titleId"
     >
       <header class="dialog-heading">
         <div>
           <span class="eyebrow">SHARED MEMORIES / 共同记忆</span>
-          <h2 id="dialog-title">{{ title }}</h2>
+          <h2 :id="titleId">{{ title }}</h2>
         </div>
         <button
           ref="close"

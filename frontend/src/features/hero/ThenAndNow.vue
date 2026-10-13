@@ -7,7 +7,10 @@ const position = ref(50)
 const find = (id: string) => props.data.contributions.find((c) => c.id === id)
 const author = (c?: Contribution) =>
   props.data.participants.find((p) => p.id === c?.participantId)?.displayName
-const time = (c?: Contribution) => props.data.moments.find((m) => m.id === c?.momentId)?.label
+const time = (c?: Contribution) =>
+  c?.timeEvidence?.precision !== 'unknown' && c?.timeEvidence?.start
+    ? new Date(c.timeEvidence.start).toLocaleString('zh-CN')
+    : '时间待确认'
 </script>
 <template>
   <p class="mode-intro">

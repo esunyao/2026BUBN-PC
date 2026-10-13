@@ -280,7 +280,8 @@ export const evolutionDetector: DiscoveryDetector = {
         '时间，让这一章有了变化',
         '来自同一手工关联场景的两个阶段。' +
           (pair.comparisonMode === 'sideBySide'
-            ? '机位不同，采用并排对照；Demo 不代表同一地点实拍。'
+            ? '机位不同，采用并排对照。' +
+              (before.isDemo || after.isDemo ? 'Demo 不代表同一地点实拍。' : '')
             : '已明确标为同构图对比。'),
         ['SAME_SCENE', 'DIFFERENT_PHASE'],
         {

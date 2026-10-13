@@ -11,23 +11,37 @@ const zoom = ref(1),
   byPerson = ref(false),
   sharedOnly = ref(false),
   selectedId = ref('')
+const sharedIds = computed(
+  () =>
+    new Set([
+      ...props.data.links.flatMap((l) => l.contributionIds),
+      ...(props.findings ?? [])
+        .filter((f) => f.type === 'shared_moment')
+        .flatMap((f) => f.evidenceIds),
+    ]),
+)
 const momentNodes = computed(() =>
   props.data.moments
     .filter((m) => props.data.scenes.some((s) => s.id === m.sceneId && s.eventId === props.eventId))
-    .filter((m) => !sharedOnly.value || props.data.links.some((l) => l.momentIds.includes(m.id)))
+    .filter(
+      (m) =>
+        !sharedOnly.value ||
+        props.data.contributions.some((c) => c.momentId === m.id && sharedIds.value.has(c.id)),
+    )
+    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
     .map((m, i) => ({ m, x: 465, y: 45 + i * 230 })),
 )
 const nodes = computed(() =>
   momentNodes.value.flatMap((row) =>
     props.data.contributions
       .filter((c) => c.momentId === row.m.id)
-      .filter(
-        (c) => !sharedOnly.value || props.data.links.some((l) => l.contributionIds.includes(c.id)),
-      )
+      .filter((c) => !sharedOnly.value || sharedIds.value.has(c.id))
       .map((c, i) => ({ c, x: 115 + i * 205, y: row.y + 105 })),
   ),
 )
-const graphHeight = computed(() => momentNodes.value.length * 230 + 30)
+const graphHeight = computed(() =>
+  Math.max(momentNodes.value.length * 230 + 30, ...findingNodes.value.map((n) => n.y + 50)),
+)
 const findingNames = {
   shared_moment: '记忆交汇',
   unseen_moment: '另一人视角',
@@ -72,17 +86,25 @@ const edges = computed(() =>
       const same = props.data.links.find(
         (l) => l.contributionIds.includes(a.c.id) && l.contributionIds.includes(b.c.id),
       )
+      const discoveredShared = (props.findings ?? []).find(
+        (f) =>
+          f.type === 'shared_moment' &&
+          f.evidenceIds.includes(a.c.id) &&
+          f.evidenceIds.includes(b.c.id),
+      )
       const person = a.c.participantId === b.c.participantId
       const ai = props.data.moments.findIndex((m) => m.id === a.c.momentId),
         bi = props.data.moments.findIndex((m) => m.id === b.c.momentId)
       const time = !same && a.c.participantId === 'a' && b.c.participantId === 'a' && bi === ai + 1
-      return same || (person && byPerson.value) || time
+      return same || discoveredShared || (person && byPerson.value) || time
         ? [
             {
               a,
               b,
               reason:
-                same?.reason ?? (time ? 'earlierLater · 前后时刻' : 'samePerson · 同一位记录者'),
+                same?.reason ??
+                discoveredShared?.reason ??
+                (time ? 'earlierLater · 前后时刻' : 'samePerson · 同一位记录者'),
             },
           ]
         : []

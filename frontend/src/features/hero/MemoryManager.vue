@@ -107,7 +107,7 @@ function pickRecord(id: string) {
     visibility: c?.visibility ?? 'event-members',
     participantTags: c?.participantTags ?? [],
     tagsConsent: c?.tagsConsent ?? false,
-    time: localDate(c?.timeEvidence?.start),
+    time: '',
   })
 }
 watch(

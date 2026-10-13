@@ -74,7 +74,7 @@ export interface Moment {
 export interface Contribution {
   contentHash?: string
   generatedCaption?: string
-  captionSource?: 'local' | 'deepseek'
+  captionSource?: 'local' | 'deepseek' | 'user'
   originalFileId?: string
   visibility?: 'private' | 'event-members' | 'public'
   participantTags?: string[]

@@ -85,8 +85,12 @@ function change(id: string) {
           <blockquote>{{ active.writtenText || '这张照片，没有留下文字。' }}</blockquote>
           <p v-if="active.generatedCaption" class="muted">
             {{ active.generatedCaption }}<br /><small
-              >{{ active.captionSource === 'deepseek' ? 'DeepSeek' : '本地' }} 自动照片说明 ·
-              不代表用户原文</small
+              >{{
+                active.captionSource === 'user'
+                  ? '用户修订的照片说明'
+                  : (active.captionSource === 'deepseek' ? 'DeepSeek' : '本地') + ' 自动照片说明'
+              }}
+              · 不代表用户原文</small
             >
           </p>
           <small>{{ active.isDemo ? '样例文字 · 图库摄影为叙事演示' : '用户原文' }}</small
