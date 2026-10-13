@@ -58,4 +58,4 @@ analyze(
 - 分析重复提交不重复收费；取消/过期任务不会覆盖新版本。原文不会被分析结果改写。
 - 提供契约 fixture 与 Kotlin 单元/HTTP 测试；前端使用同一 fixture 校验 Normalization/Detector。
 
-后端开发请主要改 `backend/Archipelago/` 与本契约的接口讨论，前端工作由当前分支持续推进。合入前双方同步 DTO 与示例 JSON，避免前端与后端各造一套模型。本机缺少 Java 运行时，尚未执行后端 Gradle 验证；请后端开发者在 Java 21 环境运行 `./gradlew test build` 并贴结果。
+后端开发请主要改 `backend/Archipelago/` 与本契约的接口讨论，前端工作由当前分支持续推进。合入前双方同步 DTO 与示例 JSON，避免前端与后端各造一套模型。本机已安装 Temurin Java 21.0.12.1，test/build 和打包 JAR 启动通过（contextLoads 一项通过）。当前没有 Web starter 或 HTTP 监听，启动后正常退出；请后端开发者补齐上述接口后提供接口和权限测试结果。

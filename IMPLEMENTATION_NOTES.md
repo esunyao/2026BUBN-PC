@@ -26,7 +26,7 @@ Home 支持创建本地事件与导入/导出存档。创建入口初始化第�
 
 ## 验证
 
-23 项 Vitest（含旧导入、导航、回放测试）通过；lint、format:check、type-check 和生产构建检查见本轮日志。真实浏览器验证 Home/Event/Scene、人物/Focus/Shared/第三人切换、2x 回放、跨月对照、图谱拖动/缩放/跨场景跳转、390px 无横向溢出，以及照片/文字/心情保存后刷新恢复。Java 运行时缺失，后端构建未验证。
+23 项 Vitest（含旧导入、导航、回放测试）通过；lint、format:check、type-check 和生产构建检查见本轮日志。真实浏览器验证 Home/Event/Scene、人物/Focus/Shared/第三人切换、2x 回放、跨月对照、图谱拖动/缩放/跨场景跳转、390px 无横向溢出，以及照片/文字/心情保存后刷新恢复。后续安装 Java 21 后，后端 test/build 和打包 JAR 启动已通过；当前无 HTTP 服务。
 
 ## Discovery 增量架构
 

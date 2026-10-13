@@ -65,7 +65,7 @@ cd backend/Archipelago
 ./gradlew bootRun
 ```
 
-Windows PowerShell 或命令提示符进入 backend/Archipelago 后，使用 .\gradlew.bat test、.\gradlew.bat build、.\gradlew.bat bootRun。当前后端是初始化骨架，尚未提供前端调用的 HTTP 业务接口；上述后端命令本轮未执行验证。
+Windows PowerShell 或命令提示符进入 backend/Archipelago 后，使用 .\gradlew.bat test、.\gradlew.bat build、.\gradlew.bat bootRun。当前后端是初始化骨架，尚未提供前端调用的 HTTP 业务接口；本机已安装 Temurin JDK 21.0.12.1，Gradle test/build 和打包 JAR 启动通过。当前仅有 Spring 上下文，启动后正常退出，不监听 8080。
 
 ## 5. Discovery 与后端协作
 

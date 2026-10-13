@@ -34,3 +34,8 @@ GPS测试文件是本地生成的虚构元数据，未使用真实私人照片�
 - 无 Java 运行时，后端 Gradle 未验证。Kotlin/Spring/SQLite 未改动，真实账号、同步与云存储由后端补齐；契约已通过 Issue #1 通知 esunyao。
 
 生产预览 http://127.0.0.1:4173 已实测晚会发现目录、演出与后台 Unseen，控制台无 warn/error。Mock Provider 测试额外验证 Vue reactive 数据的安全复制、事件范围和取消请求；合计 30 项。
+
+
+## Java 与后端验证补充
+
+Temurin Java 21.0.12.1 已安装。Gradle test/build 成功，contextLoads 1 项通过；打包 JAR 的 Spring 上下文成功启动后正常退出。当前没有 Web starter 或 HTTP 监听。成功构建采用仓库外临时 Maven Central 优先 init script；未更改 TLS 或提交机器代理配置。合并 main 后前端全部 30 项测试及 lint/format/type-check/build 再次通过。
