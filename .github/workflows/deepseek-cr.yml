@@ -23,7 +23,7 @@ jobs:
   review:
     name: DeepSeek Code Review
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     # issue_comment 事件只在 PR（而非普通 issue）上触发审查
     if: github.event_name != 'issue_comment' || github.event.issue.pull_request != null
     steps:
