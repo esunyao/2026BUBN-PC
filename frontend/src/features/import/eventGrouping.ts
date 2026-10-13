@@ -16,6 +16,7 @@ export interface EventCandidate {
   reasons: string[]
   needsReview: boolean
   manualStart?: string
+  type?: 'trip' | 'longActivity'
 }
 export interface GroupingOptions {
   gapHours: number
@@ -44,7 +45,12 @@ export function groupPhotos(photos: GroupPhoto[], options = defaultGrouping): Ev
   const known = photos
     .filter((p) => !p.duplicateOf && Number.isFinite(p.capturedAt))
     .sort((a, b) => a.capturedAt! - b.capturedAt! || a.id.localeCompare(b.id))
-  const groups: Array<{ candidate: EventCandidate; anchor: GroupPhoto; last: GroupPhoto }> = []
+  const groups: Array<{
+    candidate: EventCandidate
+    anchor: GroupPhoto
+    last: GroupPhoto
+    gpsAnchor?: GroupPhoto['gps']
+  }> = []
   for (const photo of known) {
     let match: (typeof groups)[number] | undefined
     let evidence: string[] = []
@@ -58,7 +64,7 @@ export function groupPhotos(photos: GroupPhoto[], options = defaultGrouping): Ev
         photo.capturedAt! - anchor.capturedAt! > 12 * 3600000
       )
         continue
-      const aGps = validGps(anchor.gps?.latitude, anchor.gps?.longitude)
+      const aGps = group.gpsAnchor
       const pGps = validGps(photo.gps?.latitude, photo.gps?.longitude)
       const distance = aGps && pGps ? distanceMeters(aGps, pGps) : undefined
       const visual = cosine(anchor.embedding, photo.embedding)
@@ -82,11 +88,13 @@ export function groupPhotos(photos: GroupPhoto[], options = defaultGrouping): Ev
       match.candidate.reasons = [...new Set([...match.candidate.reasons, ...evidence])]
       match.candidate.needsReview ||= evidence.includes('缺少共同位置，需确认事件')
       match.last = photo
+      match.gpsAnchor ??= validGps(photo.gps?.latitude, photo.gps?.longitude)
     } else {
       const date = new Date(photo.capturedAt!).toLocaleDateString('zh-CN')
       groups.push({
         anchor: photo,
         last: photo,
+        gpsAnchor: validGps(photo.gps?.latitude, photo.gps?.longitude),
         candidate: {
           id: photo.id,
           title: `${date} · 事件 ${groups.length + 1}`,

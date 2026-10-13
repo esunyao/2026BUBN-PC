@@ -39,3 +39,8 @@ GPS测试文件是本地生成的虚构元数据，未使用真实私人照片�
 ## Java 与后端验证补充
 
 Temurin Java 21.0.12.1 已安装。Gradle test/build 成功，contextLoads 1 项通过；打包 JAR 的 Spring 上下文成功启动后正常退出。当前没有 Web starter 或 HTTP 监听。成功构建采用仓库外临时 Maven Central 优先 init script；未更改 TLS 或提交机器代理配置。合并 main 后前端全部 30 项测试及 lint/format/type-check/build 再次通过。
+
+
+## 照片归类快速验收 · 2026-10-13
+
+主导航批量选择 → MobileNet 真正提取特征 → 手动调整 → 保存事件 → 刷新照片恢复已跑通。测试照片中的 EXIF 是专门构造的测试数据，不冒充用户或图库真实拍摄时间。未知日期保存被阻止；关闭模型可降级；390px 无横向溢出。类型/构建、受影响 lint、9 项归类/发布测试通过，未扩展全量回归。没有对识别准确率或低端设备时延作统计承诺。

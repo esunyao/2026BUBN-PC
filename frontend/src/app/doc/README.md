@@ -3,3 +3,5 @@
 [App.vue](../App.vue) 组装 Home/Event/Scene 及各功能浮层；[useMemories.ts](../useMemories.ts) 是运行中的统一数据、路由、回放与存储状态；[memoryDemo.ts](../memoryDemo.ts) 提供两套示例。详见根 IMPLEMENTATION_NOTES.md。旧 useTrip/demoTrip 保留以兼容旧模块测试，主入口不调用。
 
 useDiscovery.ts 与 useMemories.ts 组合，协调反馈、返回位置、多人 Gap 原文与作者约束；贡献仍只写入 useMemories.data。
+
+照片归类由 features/import 产生候选，saveImportedEvents 校验记录者、保存 Blob，再更新单一 MemoryData；本地事件刷新时恢复到该事件有效 Demo 参与者。

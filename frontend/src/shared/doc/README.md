@@ -5,3 +5,5 @@ memoryTypes.ts 定义 Hero 标准化实体与 EnvironmentRecipe；lib/memoryStor
 旧 types.ts、GPS/布局工具、像素 UI 与 theme.css 留存供原有地图模块和测试使用。
 
 Contribution 扩展 TimeEvidence、visibility、participantTags/tagsConsent 和客观 MediaAnalysis；Moment 支持 originGapId/endAt。用户原文不与 analysis.summary 混用。
+
+memoryStorage.storeMediaBatch 将同批照片写入一个 IndexedDB 事务；归类算法与模型保持在 features/import。

@@ -55,6 +55,14 @@ describe('event candidates from independent evidence', () => {
       ),
     ).toHaveLength(2)
   })
+  it('uses the first available GPS even if the first photo has no location', () => {
+    const photos = [
+      photo('a', 0, { embedding: [1, 0] }),
+      photo('b', 1, { embedding: [1, 0], gps: { latitude: 22, longitude: 113 } }),
+      photo('c', 2, { embedding: [1, 0], gps: { latitude: 30, longitude: 120 } }),
+    ]
+    expect(groupPhotos(photos)).toHaveLength(2)
+  })
   it('skips byte-identical duplicates and has deterministic results regardless of file order', () => {
     const items = [photo('b', 1), photo('a', 0), photo('copy', 0, { duplicateOf: 'a' })]
     expect(groupPhotos(items)).toEqual(groupPhotos([...items].reverse()))

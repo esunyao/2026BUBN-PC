@@ -113,4 +113,4 @@ export interface MemoryData {
   pairs: ThenNowPair[]
 }
 export type ViewMode =
-  'scene' | 'focus' | 'shared' | 'then-now' | 'constellation' | 'edit' | 'create'
+  'scene' | 'focus' | 'shared' | 'then-now' | 'constellation' | 'edit' | 'create' | 'import-photos'

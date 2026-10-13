@@ -7,3 +7,5 @@ world/memories/replay/ImportPanel 的旧原型源码保留，当前主入口不�
 discovery/ 实现 index/registry/privacy/dedupe/rank、Detectors、DiscoverPage 与 MockVisionAnalysisProvider。Unseen 复用 Hero 相纸，Timeline/Constellation 引用同一 Findings。
 
 import/eventGrouping.ts 提供时间、固定位置锚点与图片特征的候选事件归类；候选需用户确认，不把相似照片自动当作同一真实事件。
+
+PhotoEventImport.vue 负责候选审阅；photoAnalysis.ts 在浏览器提取真实 MobileNet 图片向量，importEvents.ts 构造已确认事件，app 负责一次性提交。legacy analyzeMedia.ts 仍是预留接口，不代表新图片嵌入功能未实现。

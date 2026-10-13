@@ -1,7 +1,10 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Contribution, MemoryData, ViewMode, EnvironmentPreset } from '../shared/memoryTypes'
 import { createMemoryDemo, presets } from './memoryDemo'
-import { readMedia, storeMedia } from '../shared/lib/memoryStorage'
+import { readMedia, storeMedia, storeMediaBatch } from '../shared/lib/memoryStorage'
+import type { AnalyzedPhoto } from '../features/import/photoAnalysis'
+import type { EventCandidate } from '../features/import/eventGrouping'
+import { buildImportedEvents } from '../features/import/importEvents'
 import { isVisible } from '../features/discovery/engine'
 import { importPhotos } from '../features/import/importPhotos'
 
@@ -270,6 +273,9 @@ export function useMemories() {
     state.viewMode = 'scene'
     state.page = page
     state.activeEventId = eventId
+    const members = data.value.events.find((e) => e.id === eventId)?.participantIds
+    if (members?.length && !members.includes(state.currentViewerId))
+      state.currentViewerId = members[0]!
     state.themeOverride = ''
     if (page === 'scene') {
       const s = data.value.scenes.find((s) => s.id === sceneId)
@@ -287,6 +293,9 @@ export function useMemories() {
     state.viewMode = 'scene'
     if (parts[0] === 'events' && data.value.events.some((e) => e.id === parts[1])) {
       state.activeEventId = parts[1]!
+      const members = data.value.events.find((e) => e.id === parts[1])!.participantIds
+      if (members.length && !members.includes(state.currentViewerId))
+        state.currentViewerId = members[0]!
       state.page = parts[2] === 'discover' ? 'discover' : 'event'
       state.selectedFindingId = new URLSearchParams(location.search).get('finding') ?? ''
       const s = data.value.scenes.find((s) => s.eventId === parts[1] && s.id === parts[3])
@@ -402,9 +411,14 @@ export function useMemories() {
     c.mood = input.mood ? [input.mood] : []
     c.isDemo = false
     c.visibility ??= 'event-members'
-    c.timeEvidence = c.capturedAt
-      ? { start: new Date(c.capturedAt).toISOString(), precision: 'exact', source: 'exif' }
-      : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
+    c.timeEvidence =
+      c.capturedAt !== undefined
+        ? {
+            start: new Date(c.capturedAt).toISOString(),
+            precision: input.file ? 'exact' : (c.timeEvidence?.precision ?? 'exact'),
+            source: input.file ? 'exif' : (c.timeEvidence?.source ?? 'exif'),
+          }
+        : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
     if (existing) {
       data.value.links.forEach((link) => {
         if (!link.momentIds.includes(c.momentId))
@@ -457,6 +471,7 @@ export function useMemories() {
     open('edit')
   }
   function exportArchive() {
+    // JSON contains metadata; photo blobs remain in IndexedDB.
     const archive: MemoryData = JSON.parse(JSON.stringify(data.value))
     archive.contributions.forEach((c) => {
       if (c.fileId) delete c.mediaUrl
@@ -470,6 +485,37 @@ export function useMemories() {
     a.click()
     URL.revokeObjectURL(url)
     notice.value = '文字与配置已导出；本地照片保留在此浏览器，未包含在 JSON 中。'
+  }
+  async function saveImportedEvents(
+    photos: AnalyzedPhoto[],
+    groups: EventCandidate[],
+    participantId: string,
+  ) {
+    if (!data.value.participants.some((p) => p.id === participantId))
+      throw new Error('请选择记录者。')
+    const patch = buildImportedEvents(photos, groups, participantId, presets.neutral)
+    const selected = photos.filter((p) => patch.contributions.some((c) => c.id === p.id))
+    const urls = new Map(selected.map((p) => [p.id, URL.createObjectURL(p.file)]))
+    try {
+      await storeMediaBatch(selected.map((p) => ({ id: p.id, file: p.file })))
+    } catch {
+      urls.forEach((url) => URL.revokeObjectURL(url))
+      throw new Error('照片保存失败；候选事件未提交，请检查浏览器空间后重试。')
+    }
+    patch.contributions.forEach((c) => {
+      c.mediaUrl = urls.get(c.id)
+    })
+    urls.forEach((url) => objectURLs.add(url))
+    data.value = {
+      ...data.value,
+      events: [...data.value.events, ...patch.events],
+      scenes: [...data.value.scenes, ...patch.scenes],
+      moments: [...data.value.moments, ...patch.moments],
+      contributions: [...data.value.contributions, ...patch.contributions],
+    }
+    state.currentViewerId = participantId
+    navigate('event', patch.events[0]!.id)
+    notice.value = `已保存 ${patch.events.length} 个事件、${selected.length} 张照片。`
   }
   async function importArchive(file: File) {
     if (file.size > 2 * 1024 * 1024) throw new Error('存档不能超过 2 MB。')
@@ -534,6 +580,7 @@ export function useMemories() {
     saveMemory,
     syncURL,
     createEvent,
+    saveImportedEvents,
     exportArchive,
     importArchive,
   }
