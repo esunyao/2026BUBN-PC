@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { DiscoveryFinding } from '../discovery/types'
 import type { Contribution, MemoryData, Moment } from '../../shared/memoryTypes'
 import MemoryImage from './MemoryImage.vue'
-const props = defineProps<{ data: MemoryData; eventId: string }>()
-const emit = defineEmits<{ jump: [c: Contribution]; moment: [id: string] }>()
+const props = defineProps<{ data: MemoryData; eventId: string; findings?: DiscoveryFinding[] }>()
+const emit = defineEmits<{ jump: [c: Contribution]; moment: [id: string]; finding: [id: string] }>()
 const zoom = ref(1),
   pan = ref({ x: 0, y: 0 }),
   list = ref(false),
@@ -88,6 +89,23 @@ const name = (c: Contribution) =>
   props.data.participants.find((p) => p.id === c.participantId)?.displayName
 </script>
 <template>
+  <div v-if="findings?.length" class="graph-discoveries">
+    <button
+      v-for="f in findings
+        .filter((f) => f.type === 'missing_piece' || f.type === 'unseen_moment')
+        .slice(0, 4)"
+      :key="f.id"
+      @click="emit('finding', f.id)"
+    >
+      {{ f.type === 'missing_piece' ? '空白片段' : '另一人视角' }} ·
+      {{
+        data.moments.find(
+          (m) => m.id === data.contributions.find((c) => c.id === f.evidenceIds[0])?.momentId,
+        )?.label
+      }}
+      ↗
+    </button>
+  </div>
   <div class="constellation-tools">
     <button aria-label="缩小星图" @click="scale(-0.15)">−</button
     ><span>{{ Math.round(zoom * 100) }}%</span
@@ -172,7 +190,10 @@ const name = (c: Contribution) =>
         }"
         @click="selectedId = node.c.id"
       >
-        <MemoryImage :src="node.c.thumbnailUrl ?? node.c.mediaUrl" :alt="node.c.alt" /><span
+        <div v-if="node.c.kind === 'note'" class="graph-text-note">
+          {{ node.c.writtenText?.slice(0, 40) }}<small>文字 · GAP</small>
+        </div>
+        <MemoryImage v-else :src="node.c.thumbnailUrl ?? node.c.mediaUrl" :alt="node.c.alt" /><span
           >{{ name(node.c) }} ·
           {{ data.moments.find((m) => m.id === node.c.momentId)?.label }}</span
         >

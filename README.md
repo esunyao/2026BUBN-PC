@@ -1,6 +1,6 @@
 # 共同记忆 · Shared Memories
 
-照片优先的 Vue 3 + TypeScript 交互体验。Home → Event → Scene / Focus，人物显影、交汇时刻、时间轴、昨日与今日、记忆星图和四种自适应环境可独立演示。后端沿用 Kotlin / Spring Boot / Java 21 架构。
+照片优先的 Vue 3 + TypeScript 交互体验。Home → Event → Scene / Focus，人物显影、交汇时刻、时间轴、昨日与今日、记忆星图和四种自适应环境可独立演示；新增 Discover、其他作者视角与无照片时段补写。后端沿用 Kotlin / Spring Boot / Java 21 架构。
 
 ## 1. 准备环境
 
@@ -27,7 +27,7 @@ pnpm --version
 ## 2. 克隆并启动前端
 
 ```sh
-git clone https://github.com/esunyao/2026BUBN-PC.git
+git clone --branch feat/shared-memories-hero https://github.com/esunyao/2026BUBN-PC.git
 cd 2026BUBN-PC/frontend
 pnpm install --frozen-lockfile
 pnpm dev
@@ -67,7 +67,13 @@ cd backend/Archipelago
 
 Windows PowerShell 或命令提示符进入 backend/Archipelago 后，使用 .\gradlew.bat test、.\gradlew.bat build、.\gradlew.bat bootRun。当前后端是初始化骨架，尚未提供前端调用的 HTTP 业务接口；上述后端命令本轮未执行验证。
 
-## 5. 阅读项目
+## 5. Discovery 与后端协作
+
+在 Event 或 Scene 点击“记忆发现 / Discover”，筛选照片证据、关联解释和原文。Unseen 支持 A/B/并看、收藏/隐藏/恢复；Missing Pieces 支持多人分别为同一时段补写，形成 text-only Moment，联动时间轴、便笺与星图，刷新保留。
+
+已实现 sameMoment / unseen / gap / sceneEvolution 及后台阶段 Demo；memory_thread 仅保留契约。识别标签为 Mock/手工标注，用户图片只使用真实 EXIF 或手动时刻；没有真实 AI 推理。后端契约见 [BACKEND_COLLABORATION](BACKEND_COLLABORATION.md)，已通过 [Issue #1](https://github.com/esunyao/2026BUBN-PC/issues/1) 指派给 esunyao。
+
+## 6. 阅读项目
 
 | 内容 | 入口 |
 | --- | --- |

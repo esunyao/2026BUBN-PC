@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Contribution, MemoryData, ViewMode, EnvironmentPreset } from '../shared/memoryTypes'
 import { createMemoryDemo, presets } from './memoryDemo'
 import { readMedia, storeMedia } from '../shared/lib/memoryStorage'
+import { isVisible } from '../features/discovery/engine'
 import { importPhotos } from '../features/import/importPhotos'
 
 const STORAGE = 'shared-memories-v1'
@@ -74,6 +75,27 @@ export function validateArchive(value: unknown): value is MemoryData {
         (!c.thumbnailUrl || /^\/demo-assets\/[\w.-]+$/.test(c.thumbnailUrl)) &&
         (c.fileId === undefined || typeof c.fileId === 'string') &&
         (c.capturedAt === undefined || Number.isFinite(c.capturedAt)) &&
+        (!c.analysis ||
+          [
+            c.analysis.sceneTags,
+            c.analysis.objects,
+            c.analysis.activities,
+            ...(c.analysis.phaseTags ? [c.analysis.phaseTags] : []),
+          ].every(
+            (items) => Array.isArray(items) && items.every((item) => typeof item === 'string'),
+          )) &&
+        (!c.timeEvidence ||
+          (['exact', 'approximate', 'date-only', 'unknown'].includes(c.timeEvidence.precision) &&
+            ['exif', 'user', 'demo', 'vision-model'].includes(c.timeEvidence.source) &&
+            (c.timeEvidence.start === undefined ||
+              (typeof c.timeEvidence.start === 'string' &&
+                Number.isFinite(Date.parse(c.timeEvidence.start)))) &&
+            (c.timeEvidence.end === undefined ||
+              (typeof c.timeEvidence.end === 'string' &&
+                Number.isFinite(Date.parse(c.timeEvidence.end)))))) &&
+        (!c.participantTags ||
+          (Array.isArray(c.participantTags) && c.participantTags.every((id) => people.has(id)))) &&
+        (!c.visibility || ['private', 'event-members', 'public'].includes(c.visibility)) &&
         (!c.gps || (Number.isFinite(c.gps.latitude) && Number.isFinite(c.gps.longitude))),
     ) &&
     d.links.every(
@@ -108,6 +130,39 @@ export function useMemories() {
   } catch {
     notice.value = '无法读取本地存档；当前仍可体验示例。'
   }
+  const latest = createMemoryDemo()
+  for (const e of data.value.events.filter((e) => e.isDemo)) {
+    const seed = latest.events.find((v) => v.id === e.id)
+    if (!seed) continue
+    e.startAt ??= seed.startAt
+    e.endAt ??= seed.endAt
+    for (const sceneId of e.sceneIds) {
+      const existingScene = data.value.scenes.find((s) => s.id === sceneId),
+        seedScene = latest.scenes.find((s) => s.id === sceneId)
+      if (!existingScene || !seedScene) continue
+      for (const id of seedScene.momentIds)
+        if (!existingScene.momentIds.includes(id)) {
+          existingScene.momentIds.push(id)
+          const m = latest.moments.find((m) => m.id === id)!
+          data.value.moments.push(m)
+          data.value.contributions.push(...latest.contributions.filter((c) => c.momentId === id))
+          data.value.links.push(...latest.links.filter((l) => l.momentIds.includes(id)))
+        }
+      existingScene.momentIds.sort(
+        (a, b) =>
+          Date.parse(data.value.moments.find((m) => m.id === a)!.startAt) -
+          Date.parse(data.value.moments.find((m) => m.id === b)!.startAt),
+      )
+    }
+  }
+  for (const c of data.value.contributions.filter((c) => c.isDemo)) {
+    const seed = latest.contributions.find((v) => v.id === c.id)
+    if (seed) {
+      c.timeEvidence ??= seed.timeEvidence
+      c.analysis ??= seed.analysis
+      c.visibility ??= 'event-members'
+    }
+  }
   // Recipes are trusted local presets; uploaded JSON cannot inject CSS or URLs.
   data.value.scenes.forEach((s) => (s.environment = structuredClone(presets[s.environment.preset])))
   const state = reactive({
@@ -119,7 +174,10 @@ export function useMemories() {
     activeContributionId: '',
     isPlaying: false,
     playbackSpeed: 1,
-    page: 'home' as 'home' | 'event' | 'scene',
+    currentViewerId: 'a',
+    selectedFindingId: '',
+    photoCursor: 0,
+    page: 'home' as 'home' | 'event' | 'scene' | 'discover',
     themeOverride: '' as EnvironmentPreset | '',
   })
   const event = computed(() => data.value.events.find((e) => e.id === state.activeEventId))
@@ -127,11 +185,24 @@ export function useMemories() {
   const moments = computed(() =>
     (scene.value?.momentIds ?? [])
       .map((id) => data.value.moments.find((m) => m.id === id))
-      .filter((m): m is NonNullable<typeof m> => !!m),
+      .filter(
+        (m): m is NonNullable<typeof m> =>
+          !!m &&
+          (!m.originGapId ||
+            data.value.contributions.some(
+              (c) =>
+                c.momentId === m.id &&
+                isVisible(c, state.currentViewerId, event.value?.participantIds ?? []),
+            )),
+      ),
   )
   const moment = computed(() => moments.value.find((m) => m.id === state.activeMomentId))
   const current = computed(() =>
-    data.value.contributions.filter((c) => c.momentId === state.activeMomentId),
+    data.value.contributions.filter(
+      (c) =>
+        c.momentId === state.activeMomentId &&
+        isVisible(c, state.currentViewerId, event.value?.participantIds ?? []),
+    ),
   )
   const visible = computed(() =>
     current.value.filter(
@@ -140,7 +211,7 @@ export function useMemories() {
   )
   const active = computed(
     () =>
-      data.value.contributions.find((c) => c.id === state.activeContributionId) ??
+      current.value.find((c) => c.id === state.activeContributionId) ??
       visible.value.find((c) => c.kind === 'photo'),
   )
   const link = computed(() =>
@@ -187,11 +258,11 @@ export function useMemories() {
     const path =
       state.page === 'home'
         ? '/'
-        : `/events/${state.activeEventId}${state.page === 'scene' ? `/scenes/${state.activeSceneId}?moment=${state.activeMomentId}` : ''}`
-    history[replace ? 'replaceState' : 'pushState']({}, '', path)
+        : `/events/${state.activeEventId}${state.page === 'discover' ? `/discover${state.selectedFindingId ? '?finding=' + encodeURIComponent(state.selectedFindingId) : ''}` : state.page === 'scene' ? `/scenes/${state.activeSceneId}?moment=${state.activeMomentId}` : ''}`
+    history[replace ? 'replaceState' : 'pushState']({ memoryView: { ...state } }, '', path)
   }
   function navigate(
-    page: 'home' | 'event' | 'scene',
+    page: 'home' | 'event' | 'scene' | 'discover',
     eventId = state.activeEventId,
     sceneId = state.activeSceneId,
   ) {
@@ -216,7 +287,8 @@ export function useMemories() {
     state.viewMode = 'scene'
     if (parts[0] === 'events' && data.value.events.some((e) => e.id === parts[1])) {
       state.activeEventId = parts[1]!
-      state.page = 'event'
+      state.page = parts[2] === 'discover' ? 'discover' : 'event'
+      state.selectedFindingId = new URLSearchParams(location.search).get('finding') ?? ''
       const s = data.value.scenes.find((s) => s.eventId === parts[1] && s.id === parts[3])
       if (s) {
         state.activeSceneId = s.id
@@ -225,6 +297,14 @@ export function useMemories() {
         selectMoment(s.momentIds.includes(id ?? '') ? id! : (s.momentIds[0] ?? ''))
       }
     } else state.page = 'home'
+    const saved = history.state?.memoryView
+    if (saved && saved.page === state.page && saved.activeEventId === state.activeEventId) {
+      state.activeParticipantId = saved.activeParticipantId ?? 'all'
+      state.activeContributionId = saved.activeContributionId ?? ''
+      state.themeOverride = saved.themeOverride ?? ''
+      state.currentViewerId = saved.currentViewerId ?? 'a'
+      state.photoCursor = saved.photoCursor ?? 0
+    }
   }
   function chooseMoment(id: string) {
     state.isPlaying = false
@@ -274,6 +354,12 @@ export function useMemories() {
     if (!input.text.trim() && !input.file && !input.id)
       throw new Error('请留下文字或选择一张照片。')
     const existing = data.value.contributions.find((c) => c.id === input.id)
+    if (
+      existing &&
+      data.value.moments.find((m) => m.id === existing.momentId)?.originGapId &&
+      existing.participantId !== state.currentViewerId
+    )
+      throw new Error('只能编辑自己对空白片段的贡献。')
     const c: Contribution = existing
       ? { ...existing }
       : {
@@ -315,6 +401,10 @@ export function useMemories() {
     c.writtenText = input.text
     c.mood = input.mood ? [input.mood] : []
     c.isDemo = false
+    c.visibility ??= 'event-members'
+    c.timeEvidence = c.capturedAt
+      ? { start: new Date(c.capturedAt).toISOString(), precision: 'exact', source: 'exif' }
+      : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
     if (existing) {
       data.value.links.forEach((link) => {
         if (!link.momentIds.includes(c.momentId))
@@ -442,6 +532,7 @@ export function useMemories() {
     open,
     jump,
     saveMemory,
+    syncURL,
     createEvent,
     exportArchive,
     importArchive,

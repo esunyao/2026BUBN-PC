@@ -38,3 +38,15 @@ pnpm preview
 - 架构与降级：[IMPLEMENTATION_NOTES](../IMPLEMENTATION_NOTES.md)。原地图模块留存，当前主入口使用 Hero。
 
 没有真实 AI 推理、多人同步、服务端照片存储或 3D 地形重建；后台沿用仓库 Kotlin/Spring 架构，未来仅通过 adapter 接入。
+
+## Memory Discovery 增量
+
+入口 `/events/hailing/discover` 与 `/events/gala/discover`，支持 `?finding=<stable ID>` 深链。Home 数量、Scene 入口、Timeline 空白标记和星图发现入口来自同一 Findings。按类型、场景和记录者筛选，也可切换演示身份。
+
+路线：日落 → 记忆发现 → 日落 Unseen → A/B/并看 → 查看依据 → 收藏/关闭/返回（保留人物、照片、主题、时刻、滚动位置）。尚未讲述 → 输入 1–500 字 → 保存 → 另一 Demo 身份为同一 gap 补写 → 两份独立原文 → Scene 文字时间节点/便笺/星图 → 刷新。晚会有准备/舞台/后台阶段及演出前 Gap。
+
+`features/discovery/engine.ts` 先按权限过滤、建立 scene/moment 索引，再检测、去重、排序；`app/useDiscovery.ts` 协调反馈与原文。Gap 为明确事件范围内、同日 07:00–22:00、60–240 分钟、每事件最多 3 条，不以照片缺失断言重要事件。当前身份只能编辑/删除自己的 Gap 原文。Demo 身份切换不是生产鉴权，后端必须检查账号与事件成员权限。
+
+MockVisionAnalysisProvider 仅返回 Demo 手工阶段标签；用户上传不调用模型。ImageAnalysisProvider 的批量契约见 [后端协作](../BACKEND_COLLABORATION.md)。Thread 仅契约，缺可靠同物体证据就不生成发现。当前保存可编辑版本，不提供历史版本 UI，生产审计由后端补齐。
+
+验证为 30 项 Vitest、lint/format/type/build；浏览器验收见 [记录](doc/verification.md)。没有新增 Playwright 测试包，浏览器操作通过现有 CUA 的 Playwright locator 与原生截图接口执行。

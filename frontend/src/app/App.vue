@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useMemories } from './useMemories'
+import { useDiscovery } from './useDiscovery'
+import DiscoverPage from '../features/discovery/DiscoverPage.vue'
+import { isVisible } from '../features/discovery/engine'
+import type { DiscoveryFinding } from '../features/discovery/types'
 import type { Contribution, EnvironmentPreset } from '../shared/memoryTypes'
 import AtmosphereEngine from '../features/hero/AtmosphereEngine.vue'
 import MemoryImage from '../features/hero/MemoryImage.vue'
@@ -10,6 +14,7 @@ import MemoryDialog from '../features/hero/MemoryDialog.vue'
 import MemoryConstellation from '../features/hero/MemoryConstellation.vue'
 import ThenAndNow from '../features/hero/ThenAndNow.vue'
 import PerspectiveExperience from '../features/hero/PerspectiveExperience.vue'
+const app = useMemories()
 const {
   data,
   state,
@@ -33,7 +38,75 @@ const {
   createEvent,
   exportArchive,
   importArchive,
-} = useMemories()
+} = app
+const discovery = useDiscovery(app)
+const publicData = computed(() => ({
+  ...data.value,
+  moments: data.value.moments.filter(
+    (m) =>
+      !m.originGapId ||
+      data.value.contributions.some(
+        (c) =>
+          c.momentId === m.id &&
+          isVisible(
+            c,
+            state.currentViewerId,
+            data.value.events.find((e) => e.sceneIds.includes(m.sceneId))?.participantIds ?? [],
+          ),
+      ),
+  ),
+  contributions: data.value.contributions.filter((c) =>
+    isVisible(
+      c,
+      state.currentViewerId,
+      data.value.events.find((e) =>
+        e.sceneIds.includes(data.value.moments.find((m) => m.id === c.momentId)?.sceneId ?? ''),
+      )?.participantIds ?? [],
+    ),
+  ),
+}))
+const sceneFindings = computed(() =>
+  discovery.findings.value.filter((f) => f.sceneIds.includes(state.activeSceneId)),
+)
+async function saveDiscoveryGap(
+  f: DiscoveryFinding,
+  text: string,
+  mood: string,
+  visibility: 'private' | 'event-members',
+  id?: string,
+) {
+  try {
+    await discovery.saveGap(f, text, mood, visibility, id)
+  } catch (e) {
+    notice.value = e instanceof Error ? e.message : '保存失败'
+  }
+}
+async function supplementFinding(f: DiscoveryFinding, text: string, mood: string) {
+  const target = data.value.contributions.find((c) => c.id === f.evidenceIds[0])
+  if (!target || !text.trim() || text.length > 500) return
+  const saved = { ...state }
+  try {
+    await app.saveMemory({
+      momentId: target.momentId,
+      participantId: state.currentViewerId,
+      text,
+      mood,
+    })
+    Object.assign(state, saved)
+    app.syncURL(true)
+    notice.value = '你的补充已原样保存到对应时刻。'
+  } catch (e) {
+    notice.value = e instanceof Error ? e.message : '保存失败'
+  }
+}
+function openSceneFinding(id: string) {
+  discovery.enter()
+  discovery.select(id)
+}
+function jumpDiscovery(c: Contribution) {
+  state.selectedFindingId = ''
+  jump(c)
+}
 const pointer = reactive({ x: 0, y: 0 })
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
 const names = computed(() =>
@@ -59,7 +132,7 @@ const sharedPeople = computed(() => [
 ])
 const sharedPerson = ref(''),
   sharedOrigin = ref<'scene' | 'focus'>('scene'),
-  discovery = ref(false),
+  discoverySeen = ref(false),
   quote = ref(false)
 const themes: Array<[EnvironmentPreset, string]> = [
   ['coastal', '海边'],
@@ -83,7 +156,7 @@ const archiveInput = ref<HTMLInputElement>()
 const author = (c?: Contribution) => names.value[c?.participantId ?? ''] ?? ''
 const momentFor = (c?: Contribution) => data.value.moments.find((m) => m.id === c?.momentId)
 function cover(sceneId: string) {
-  return data.value.contributions.find(
+  return publicData.value.contributions.find(
     (c) => data.value.moments.find((m) => m.id === c.momentId)?.sceneId === sceneId && c.mediaUrl,
   )?.mediaUrl
 }
@@ -117,13 +190,17 @@ function startShared(origin: 'scene' | 'focus') {
   sharedOrigin.value = origin
   sharedPerson.value = sharedPeople.value.find((id) => id !== active.value?.participantId) ?? ''
   open('shared')
-  quote.value = !discovery.value
-  discovery.value = true
+  quote.value = !discoverySeen.value
+  discoverySeen.value = true
 }
 function closeDialog() {
   if (busy.value) return
   state.viewMode = state.viewMode === 'shared' ? sharedOrigin.value : 'scene'
   quote.value = false
+}
+function openGraphFinding(id: string) {
+  state.viewMode = 'scene'
+  openSceneFinding(id)
 }
 function goToGraphMoment(id: string) {
   chooseMoment(id)
@@ -221,12 +298,17 @@ const dialogTitle = computed(
     @pointerleave="resetPointer"
   >
     <AtmosphereEngine :recipe="environmentRecipe" :photo="backdrop" :pointer="pointer" />
-    <header class="site-header" :inert="state.viewMode !== 'scene'">
+    <header class="site-header" :inert="state.viewMode !== 'scene' || !!discovery.selected.value">
       <a href="/" class="wordmark" @click.prevent="navigate('home')"
         ><span class="brand-mark">m.</span><span>共同记忆<small>SHARED MEMORIES</small></span></a
       >
       <nav aria-label="主导航">
         <button v-if="state.page !== 'home'" @click="navigate('home')">所有篇章</button
+        ><button
+          v-if="state.activeEventId && state.page !== 'home' && state.page !== 'discover'"
+          @click="discovery.enter()"
+        >
+          记忆发现 / Discover</button
         ><button @click="archiveInput?.click()">导入存档</button
         ><button @click="exportArchive">导出</button
         ><button class="header-create" @click="open(state.page === 'scene' ? 'edit' : 'create')">
@@ -244,7 +326,11 @@ const dialogTitle = computed(
       />
     </header>
     <div v-if="loading" class="loading-status" role="status">正在整理本地记忆…</div>
-    <section v-if="state.page === 'home'" class="home-page" :inert="state.viewMode !== 'scene'">
+    <section
+      v-if="state.page === 'home'"
+      class="home-page"
+      :inert="state.viewMode !== 'scene' || !!discovery.selected.value"
+    >
       <div class="home-intro">
         <span class="eyebrow">A LITTLE PLACE FOR EVERYTHING WE REMEMBER</span>
         <h1>同一段时光，<br />不同的世界。</h1>
@@ -267,7 +353,9 @@ const dialogTitle = computed(
             >
             <h2>{{ e.title }}</h2>
             <p>{{ e.subtitle }}</p>
-            <span class="cover-arrow">↗</span>
+            <small class="finding-count"
+              >本段经历有 {{ discovery.count(e.id) }} 个值得重新发现的瞬间</small
+            ><span class="cover-arrow">↗</span>
           </div>
           <span class="demo-label">{{ e.isDemo ? '示例事件 · 真实图库摄影' : '本地篇章' }}</span></a
         >
@@ -280,7 +368,7 @@ const dialogTitle = computed(
     <section
       v-else-if="state.page === 'event'"
       class="overview-page"
-      :inert="state.viewMode !== 'scene'"
+      :inert="state.viewMode !== 'scene' || !!discovery.selected.value"
     >
       <button class="text-link" @click="navigate('home')">← 所有篇章</button>
       <div class="overview-title">
@@ -310,7 +398,32 @@ const dialogTitle = computed(
       </div>
       <p class="overview-note">通过照片进入章节。每一份文字，都留在它原本的作者身旁。</p>
     </section>
-    <section v-else class="scene-page" :inert="state.viewMode !== 'scene'">
+    <DiscoverPage
+      v-else-if="state.page === 'discover'"
+      :data="publicData"
+      :findings="discovery.findings.value"
+      :selected="discovery.selected.value"
+      :requested-id="state.selectedFindingId"
+      :viewer-id="state.currentViewerId"
+      :event-id="state.activeEventId"
+      :feedback="discovery.feedback.value"
+      :hidden="discovery.showHidden.value"
+      @viewer="state.currentViewerId = $event"
+      @select="discovery.select"
+      @close="discovery.close"
+      @back="discovery.back"
+      @mark="discovery.mark"
+      @hidden="discovery.showHidden.value = !discovery.showHidden.value"
+      @jump="jumpDiscovery"
+      @save="saveDiscoveryGap"
+      @supplement="supplementFinding"
+      @remove="discovery.removeNote"
+    />
+    <section
+      v-else
+      class="scene-page"
+      :inert="state.viewMode !== 'scene' || !!discovery.selected.value"
+    >
       <div class="scene-topline">
         <button class="text-link" @click="navigate('event')">← {{ event?.title }}</button
         ><span>{{
@@ -365,6 +478,7 @@ const dialogTitle = computed(
           </div>
         </div>
         <SpatialPhotoStack
+          v-model:photo-cursor="state.photoCursor"
           :contributions="current"
           :participant="state.activeParticipantId"
           :names="names"
@@ -398,6 +512,13 @@ const dialogTitle = computed(
           </div>
         </div>
         <div class="experience-actions">
+          <button
+            v-if="sceneFindings.length"
+            class="text-link discover-scene-link"
+            @click="discovery.enter()"
+          >
+            还有另一段故事 · 记忆发现 {{ sceneFindings.length }} ↗
+          </button>
           <button v-if="link && active" class="shared-discovery" @click="startShared('scene')">
             这一刻，还有另一双眼睛。 <span>↗</span>
           </button>
@@ -409,10 +530,12 @@ const dialogTitle = computed(
       </div>
       <SceneTimeline
         :moments="moments"
-        :contributions="data.contributions"
+        :contributions="publicData.contributions"
         :active-id="state.activeMomentId"
         :playing="state.isPlaying"
         :speed="state.playbackSpeed"
+        :findings="sceneFindings"
+        @discover="openSceneFinding"
         @select="chooseMoment"
         @toggle="togglePlayback"
         @speed="state.playbackSpeed = $event"
@@ -436,8 +559,10 @@ const dialogTitle = computed(
     <Transition name="modal"
       ><MemoryDialog v-if="state.viewMode !== 'scene'" :title="dialogTitle" @close="closeDialog">
         <PerspectiveExperience
-          v-if="(state.viewMode === 'focus' || state.viewMode === 'shared') && active"
-          :data="data"
+          v-if="
+            (state.viewMode === 'focus' || state.viewMode === 'shared') && active?.kind === 'photo'
+          "
+          :data="publicData"
           :active="active"
           :link="link"
           :shared="state.viewMode === 'shared'"
@@ -449,11 +574,32 @@ const dialogTitle = computed(
           @back="state.viewMode = sharedOrigin"
           @edit="editActive"
         />
-        <ThenAndNow v-else-if="state.viewMode === 'then-now' && pair" :pair="pair" :data="data" />
+        <article
+          v-else-if="state.viewMode === 'focus' && active?.kind === 'note'"
+          class="paper-focus"
+        >
+          <span class="eyebrow">{{ author(active) }} · 用户原文 · 文字记忆</span>
+          <blockquote>{{ active.writtenText }}</blockquote>
+          <p>{{ momentFor(active)?.label }}</p>
+          <button
+            v-if="active.participantId === state.currentViewerId"
+            class="text-link"
+            @click="editActive"
+          >
+            编辑我的文字
+          </button>
+        </article>
+        <ThenAndNow
+          v-else-if="state.viewMode === 'then-now' && pair"
+          :pair="pair"
+          :data="publicData"
+        />
         <MemoryConstellation
           v-else-if="state.viewMode === 'constellation'"
-          :data="data"
+          :data="publicData"
           :event-id="state.activeEventId"
+          :findings="discovery.findings.value"
+          @finding="openGraphFinding"
           @jump="jump"
           @moment="goToGraphMoment"
         />

@@ -2,7 +2,7 @@
 
 ## 数据与状态
 
-Vue 3 Composition API 与现有 pnpm / Vite / TypeScript 工程保持一致，没有引入新状态库或 3D 引擎。app/useMemories.ts 是运行中的单一状态源，memoryDemo.ts 创建两套事件、四个场景、九个时刻及 28 份贡献。shared/memoryTypes.ts 定义标准化关联；所有视图使用相同 contribution ID。历史地图、导航、回放与 useTrip 保留在源码中，主入口不再挂载它们。原 importPhotos.ts 继续承担格式验证和真实 EXIF 提取。
+Vue 3 Composition API 与现有 pnpm / Vite / TypeScript 工程保持一致，没有引入新状态库或 3D 引擎。app/useMemories.ts 是运行中的单一状态源，memoryDemo.ts 创建两套事件、四个场景、十一个时刻及 34 份贡献。shared/memoryTypes.ts 定义标准化关联；所有视图使用相同 contribution ID。历史地图、导航、回放与 useTrip 保留在源码中，主入口不再挂载它们。原 importPhotos.ts 继续承担格式验证和真实 EXIF 提取。
 
 ## 动画与返回
 
@@ -27,3 +27,13 @@ Home 支持创建本地事件与导入/导出存档。创建入口初始化第�
 ## 验证
 
 23 项 Vitest（含旧导入、导航、回放测试）通过；lint、format:check、type-check 和生产构建检查见本轮日志。真实浏览器验证 Home/Event/Scene、人物/Focus/Shared/第三人切换、2x 回放、跨月对照、图谱拖动/缩放/跨场景跳转、390px 无横向溢出，以及照片/文字/心情保存后刷新恢复。Java 运行时缺失，后端构建未验证。
+
+## Discovery 增量架构
+
+MemoryData → indexMemory（先过滤 visibility）→ Detector registry → stable signature 去重 → 规则等级排序 → viewer 反馈 → Discover/Scene/Timeline/Constellation。同步 computed 仅随数据/viewer/反馈变化重算，不会被旧异步结果覆盖。“不是你上传的”是 Unseen 判据，不声称现实中没见过；tagsConsent + participantTags 才能显示自愿身份标注。Discovery 不显示模型自报百分比。
+
+实现 same_moment、unseen、gap、scene_evolution；backstage 为手工阶段 Demo，thread-contract 返回空数组。每个时刻最多推荐一个不同素材的新视角。补写不改变 gap finding ID，每份原文独立署名；删完最后一份原文时移除空 Moment，Timeline 恢复 gap 标记。私密文字不通过人数/目录泄漏。
+
+旧 Hero 浏览器存档增量补齐 Demo 时间范围和时刻，保留已编辑贡献。真实上传用 EXIF，缺时戳时仅使用用户指定 Moment 的近似时间；未知时间不参与交汇/Gap。JSON 导入校验时间、标签与可见性，用户文本只以插值渲染。
+
+返回 Discover 保存 Scene 原状态和滚动位置；history 保存 primitive memoryView，URL 定位事件/场景/时刻/发现。失效、隐藏或无权限发现显示通用说明。后端遵循既有 Kotlin/Spring 架构，仅通过 ImageAnalysisProvider/数据仓库 adapter 接入，具体字段与任务在 BACKEND_COLLABORATION.md。

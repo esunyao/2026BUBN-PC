@@ -1,3 +1,19 @@
+export type Provenance = 'exif' | 'user' | 'vision-model' | 'demo'
+export interface TimeEvidence {
+  start?: string
+  end?: string
+  precision: 'exact' | 'approximate' | 'date-only' | 'unknown'
+  source: Provenance
+}
+export interface MediaAnalysis {
+  sceneTags: string[]
+  objects: string[]
+  activities: string[]
+  phaseTags?: string[]
+  summary?: string
+  modelId?: string
+  version?: string
+}
 export type EnvironmentPreset = 'coastal' | 'alpine' | 'urban' | 'ceremony' | 'neutral'
 export interface EnvironmentRecipe {
   preset: EnvironmentPreset
@@ -23,6 +39,8 @@ export interface MemoryParticipant {
   color: string
 }
 export interface MemoryEvent {
+  startAt?: string
+  endAt?: string
   id: string
   title: string
   subtitle: string
@@ -40,6 +58,8 @@ export interface Scene {
   environment: EnvironmentRecipe
 }
 export interface Moment {
+  endAt?: string
+  originGapId?: string
   id: string
   sceneId: string
   title: string
@@ -49,6 +69,11 @@ export interface Moment {
   contributionIds: string[]
 }
 export interface Contribution {
+  visibility?: 'private' | 'event-members' | 'public'
+  participantTags?: string[]
+  tagsConsent?: boolean
+  timeEvidence?: TimeEvidence
+  analysis?: MediaAnalysis
   id: string
   momentId: string
   participantId: string

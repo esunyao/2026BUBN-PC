@@ -41,6 +41,8 @@
 | 小船自由移动与自动航行 | [`navigation/AGENTS.md`](./frontend/src/navigation/AGENTS.md) → [`navigation/doc`](./frontend/src/navigation/doc/README.md) |
 | 公共类型、组件与像素资产 | [`shared/AGENTS.md`](./frontend/src/shared/AGENTS.md) → [`shared/doc`](./frontend/src/shared/doc/README.md) |
 | 查看 MVP 演示与模拟图 | [`doc-bg/20261013mvp/`](./doc-bg/20261013mvp/README.md) |
+| Hero 与 Discovery 实现 | [`IMPLEMENTATION_NOTES.md`](./IMPLEMENTATION_NOTES.md) → [`discovery/`](./frontend/src/features/discovery/) |
+| 后端协作契约 | [`BACKEND_COLLABORATION.md`](./BACKEND_COLLABORATION.md) |
 | 查看 AI 使用情况 | [`AI_USAGE.md`](./AI_USAGE.md) → [`ai-logs/`](./ai-logs/) |
 | 查看比赛提交要求 | [BNBUPC 2026 规则说明（公开转载）](https://www.yeyulingfeng.com/a/1140812.html) |
 

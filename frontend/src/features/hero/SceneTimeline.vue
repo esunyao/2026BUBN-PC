@@ -1,14 +1,21 @@
 <script setup lang="ts">
+import type { DiscoveryFinding } from '../discovery/types'
 import type { Contribution, Moment } from '../../shared/memoryTypes'
 import MemoryImage from './MemoryImage.vue'
 defineProps<{
+  findings?: DiscoveryFinding[]
   moments: Moment[]
   contributions: Contribution[]
   activeId: string
   playing: boolean
   speed: number
 }>()
-const emit = defineEmits<{ select: [id: string]; toggle: []; speed: [speed: number] }>()
+const emit = defineEmits<{
+  select: [id: string]
+  toggle: []
+  speed: [speed: number]
+  discover: [id: string]
+}>()
 </script>
 <template>
   <section class="scene-timeline" aria-label="场景时间轴">
@@ -30,24 +37,47 @@ const emit = defineEmits<{ select: [id: string]; toggle: []; speed: [speed: numb
       </div>
     </div>
     <div class="filmstrip">
-      <button
-        v-for="(m, i) in moments"
-        :key="m.id"
-        :class="{ active: m.id === activeId }"
-        :aria-pressed="m.id === activeId"
-        @click="emit('select', m.id)"
+      <template v-for="(m, i) in moments" :key="m.id"
+        ><button
+          :class="{ active: m.id === activeId }"
+          :aria-pressed="m.id === activeId"
+          @click="emit('select', m.id)"
+        >
+          <span class="film-photo"
+            ><span v-if="m.originGapId" class="text-film"
+              >文字记忆<br />{{
+                contributions.filter((c) => c.momentId === m.id).length
+              }}
+              份原文</span
+            ><MemoryImage
+              v-else
+              :src="
+                contributions.find((c) => m.contributionIds.includes(c.id) && c.mediaUrl)
+                  ?.thumbnailUrl ??
+                contributions.find((c) => m.contributionIds.includes(c.id) && c.mediaUrl)?.mediaUrl
+              "
+              :alt="m.title"
+            /><span>{{ String(i + 1).padStart(2, '0') }}</span></span
+          ><span class="film-label">{{ m.label }}</span></button
+        ><button
+          v-for="gap in (findings ?? []).filter(
+            (f) =>
+              f.type === 'missing_piece' &&
+              f.originMomentIds?.[0] === m.id &&
+              !moments.some((m) => m.originGapId === f.gapId),
+          )"
+          :key="gap.id"
+          class="gap-film"
+          @click="emit('discover', gap.id)"
+        >
+          <span>未记录片段</span
+          ><small
+            >{{ gap.timeRange?.start?.slice(11, 16) }}—{{
+              gap.timeRange?.end?.slice(11, 16)
+            }}</small
+          >
+        </button></template
       >
-        <span class="film-photo"
-          ><MemoryImage
-            :src="
-              contributions.find((c) => m.contributionIds.includes(c.id) && c.mediaUrl)
-                ?.thumbnailUrl ??
-              contributions.find((c) => m.contributionIds.includes(c.id) && c.mediaUrl)?.mediaUrl
-            "
-            :alt="m.title"
-          /><span>{{ String(i + 1).padStart(2, '0') }}</span></span
-        ><span class="film-label">{{ m.label }}</span>
-      </button>
     </div>
     <input
       class="time-range"

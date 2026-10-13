@@ -51,6 +51,8 @@ describe('unified memory session', () => {
     await vi.advanceTimersByTimeAsync(1750)
     expect(app.state.activeMomentId).toBe('coast-sunset')
     await vi.advanceTimersByTimeAsync(1750)
+    expect(app.state.activeMomentId).toBe('coast-evening')
+    await vi.advanceTimersByTimeAsync(1750)
     expect(app.state.isPlaying).toBe(false)
     scope.stop()
   })

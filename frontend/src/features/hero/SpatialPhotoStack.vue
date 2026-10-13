@@ -1,19 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { Contribution } from '../../shared/memoryTypes'
 import MemoryImage from './MemoryImage.vue'
 const props = defineProps<{
+  photoCursor: number
   contributions: Contribution[]
   participant: string
   names: Record<string, string>
   pointer: { x: number; y: number }
 }>()
-const emit = defineEmits<{ focus: [id: string]; nearest: [] }>()
+const emit = defineEmits<{
+  focus: [id: string]
+  nearest: []
+  'update:photoCursor': [value: number]
+}>()
 const photos = computed(() => props.contributions.filter((c) => c.kind === 'photo'))
 const selected = computed(() =>
   photos.value.filter((c) => props.participant === 'all' || c.participantId === props.participant),
 )
-const photoIndex = ref(0)
+const photoIndex = computed({
+  get: () => props.photoCursor,
+  set: (value) => emit('update:photoCursor', value),
+})
 let touchX = 0
 function step(delta: number) {
   photoIndex.value =
@@ -80,11 +88,25 @@ function style(c: Contribution, index: number) {
         </button>
       </TransitionGroup>
     </div>
-    <div v-if="!selected.length" class="empty-memory" role="status">
+    <div
+      v-if="!photos.length && contributions.some((c) => c.kind === 'note')"
+      class="text-memory-stack"
+    >
+      <button
+        v-for="c in contributions.filter((c) => c.kind === 'note')"
+        :key="c.id"
+        @click="emit('focus', c.id)"
+      >
+        <span class="eyebrow">{{ names[c.participantId] }} · 文字记忆</span>
+        <blockquote>{{ c.writtenText }}</blockquote>
+        <small>点击便笺，阅读原文 ↗</small>
+      </button>
+    </div>
+    <div v-else-if="!selected.length" class="empty-memory" role="status">
       <p>此人在这个时刻没有留下照片。</p>
       <button @click="emit('nearest')">查看最近的时刻 ↗</button>
     </div>
-    <div class="stack-controls">
+    <div v-if="photos.length" class="stack-controls">
       <button aria-label="上一张照片" :disabled="selected.length < 2" @click="step(-1)">←</button
       ><span
         >{{ selected.length ? (photoIndex % selected.length) + 1 : 0 }} / {{ selected.length }} ·

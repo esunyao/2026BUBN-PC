@@ -40,6 +40,8 @@ export function createMemoryDemo(): MemoryData {
     events: [
       {
         id: 'hailing',
+        startAt: '2026-08-16T08:00:00+08:00',
+        endAt: '2026-08-17T22:00:00+08:00',
         title: '海陵岛之旅',
         subtitle: '三个人，一段留在夏天的时光。',
         type: 'trip',
@@ -49,6 +51,8 @@ export function createMemoryDemo(): MemoryData {
       },
       {
         id: 'gala',
+        startAt: '2026-10-01T08:00:00+08:00',
+        endAt: '2027-01-01T22:00:00+08:00',
         title: '元旦晚会',
         subtitle: '从第一张节目单，到最后一次谢幕。',
         type: 'longActivity',
@@ -63,7 +67,7 @@ export function createMemoryDemo(): MemoryData {
         eventId: 'hailing',
         title: '海边漫步',
         subtitle: '潮汐来过，光也来过。',
-        momentIds: ['coast-morning', 'coast-afternoon', 'coast-sunset'],
+        momentIds: ['coast-morning', 'coast-afternoon', 'coast-sunset', 'coast-evening'],
         environment: structuredClone(presets.coastal),
       },
       {
@@ -87,7 +91,7 @@ export function createMemoryDemo(): MemoryData {
         eventId: 'gala',
         title: '灯亮之前，灯亮之后',
         subtitle: '把三个月的准备，留在这一晚。',
-        momentIds: ['stage-plan', 'stage-rehearsal', 'stage-show', 'stage-curtain'],
+        momentIds: ['stage-plan', 'stage-rehearsal', 'stage-ready', 'stage-show', 'stage-curtain'],
         environment: structuredClone(presets.ceremony),
       },
     ],
@@ -233,6 +237,46 @@ export function createMemoryDemo(): MemoryData {
       [11794650, '乐队演出现场', '把最后一段表演留了下来。'],
     ],
   )
+  moment('coast-evening', 'coast', '夜色到来', '2026-08-16T20:05:00+08:00', '20:05', 'night', [
+    [33356268, '晚间章节的海浪素材', '夜色章节的演示记录。'],
+    [16414497, '岸边潮水的素材照片', '在岸边留下另一张记录。'],
+    [26584348, '海边的人们', '这一段使用海岸摄影作为演示素材。'],
+  ])
+  moment(
+    'stage-ready',
+    'stage',
+    '演出前 · 准备就绪',
+    '2027-01-01T17:45:00+08:00',
+    '1月1日 · 17:45',
+    'stage-warm',
+    [
+      [32388451, '后台的演出服装', '开演前记录了后台的准备。'],
+      [6899928, '从侧幕看舞台', '从侧幕拍下舞台。'],
+      [29858811, '舞台设备的示例素材', '设备准备阶段的素材样例。'],
+    ],
+  )
+  data.moments.sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
+  for (const c of data.contributions) {
+    const m = data.moments.find((m) => m.id === c.momentId)!
+    c.visibility = 'event-members'
+    c.timeEvidence = { start: m.startAt, precision: 'approximate', source: 'demo' }
+    c.analysis = {
+      sceneTags: [m.sceneId],
+      objects: [],
+      activities: [],
+      phaseTags: m.id.includes('plan')
+        ? ['planning']
+        : m.id.includes('rehearsal')
+          ? ['rehearsal']
+          : m.id.includes('ready') || (m.id === 'stage-show' && c.participantId === 'b')
+            ? ['backstage']
+            : m.id.includes('show')
+              ? ['performance']
+              : [],
+      modelId: 'manual-demo-annotations',
+      version: '1',
+    }
+  }
   data.pairs = [
     {
       id: 'coast-pair',

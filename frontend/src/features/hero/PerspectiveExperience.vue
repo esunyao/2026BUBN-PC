@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import type { Contribution, MemoryData, SharedMomentLink } from '../../shared/memoryTypes'
 import MemoryImage from './MemoryImage.vue'
 const props = defineProps<{
+  hideConfidence?: boolean
+  readOnly?: boolean
   data: MemoryData
   active: Contribution
   link?: SharedMomentLink
@@ -42,11 +44,13 @@ function change(id: string) {
       <p class="mode-intro">
         {{
           shared
-            ? `${link?.reason} · 关联可信度 ${Math.round((link?.confidence ?? 0) * 100)}%（演示规则）`
+            ? hideConfidence
+              ? link?.reason
+              : `${link?.reason} · 关联可信度 ${Math.round((link?.confidence ?? 0) * 100)}%（演示规则）`
             : `${moment(active)?.label} / ${name(active)}`
         }}
       </p>
-      <div v-if="shared" class="shared-switch">
+      <div v-if="shared && !readOnly" class="shared-switch">
         <span>与谁交汇</span
         ><button
           v-for="p in people"
@@ -90,7 +94,9 @@ function change(id: string) {
             <p v-if="active.capturedAt" class="muted">
               原始拍摄时间：{{ new Date(active.capturedAt).toLocaleString() }}
             </p>
-            <button class="text-link" @click="emit('edit')">编辑这段记忆</button></template
+            <button v-if="!readOnly" class="text-link" @click="emit('edit')">
+              编辑这段记忆
+            </button></template
           >
         </figcaption>
       </figure>
