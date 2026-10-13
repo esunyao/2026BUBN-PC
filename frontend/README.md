@@ -1,42 +1,30 @@
-# frontend
+# Shared Moment World
 
-This template should help get you started developing with Vue 3 in Vite.
+纯前端的共同时刻世界 MVP：像素群岛承载地点，照片记录共同旅行。演示数据和图片为虚构素材。
 
-## Recommended IDE Setup
+## 启动
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+使用 Node 22.18+ 或 24.12+ 与 pnpm（准确范围见 package.json）。
 
 ```sh
-pnpm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-### Type-Check, Compile and Minify for Production
+默认地址由 Vite 输出。Git Bash 若命中旧的 WSL Node，请改用已安装的 Windows Node 24+ 运行 pnpm，保持当前项目配置。
+
+## 检查
 
 ```sh
+pnpm lint
+pnpm format:check
+pnpm test
+pnpm type-check
 pnpm build
 ```
+
+## 阅读入口
+
+- [前端协作规范](AGENTS.md)
+- [架构、使用与验证](doc/README.md)
+- [MVP 模拟图与演示](../doc-bg/20261013mvp/README.md)

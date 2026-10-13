@@ -9,20 +9,31 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build"
+    "type-check": "vue-tsc --build",
+    "lint": "eslint src/app src/features src/navigation src/shared src/main.ts",
+    "format:check": "prettier --check src/app src/features src/navigation src/shared src/main.ts eslint.config.js .prettierrc.json",
+    "test": "vitest run"
   },
   "dependencies": {
+    "exifr": "^7.1.3",
     "vue": "^3.5.42"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tsconfig/node24": "^24.0.5",
     "@types/node": "^24.13.4",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.11.1",
+    "globals": "^17.13.0",
     "npm-run-all2": "^9.0.3",
+    "prettier": "^3.9.10",
     "typescript": "~6.0.0",
+    "typescript-eslint": "^8.71.2",
     "vite": "^8.2.2",
-    "vite-plugin-vue-devtools": "^8.2.1",
+    "vitest": "^5.0.4",
     "vue-tsc": "^3.3.11"
   },
   "engines": {
