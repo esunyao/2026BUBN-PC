@@ -1,0 +1,36 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Frontend MVP API summary",
+    "version": "2026-10-13",
+    "description": "Dated summary of existing backend read APIs. Frontend remains a local demo; this file does not claim API integration. Backend OpenAPI is authoritative. Discovery text and feedback synchronization are future work."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "security": [
+    {
+      "oauth2": ["world"]
+    }
+  ],
+  "paths": {
+    "/api/v1/me": {
+      "$ref": "../../backend/Archipelago/doc/openapi.yaml#/paths/~1api~1v1~1me"
+    },
+    "/api/v1/events": {
+      "$ref": "../../backend/Archipelago/doc/openapi.yaml#/paths/~1api~1v1~1events"
+    },
+    "/api/v1/events/{eventId}": {
+      "$ref": "../../backend/Archipelago/doc/openapi.yaml#/paths/~1api~1v1~1events~1{eventId}"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "oauth2": {
+        "$ref": "../../backend/Archipelago/doc/openapi.yaml#/components/securitySchemes/oauth2"
+      }
+    }
+  }
+}
