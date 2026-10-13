@@ -4,7 +4,7 @@ import { createMemoryDemo, presets } from './memoryDemo'
 import { readMedia, storeMedia, storeMediaBatch } from '../shared/lib/memoryStorage'
 import type { AnalyzedPhoto } from '../features/import/photoAnalysis'
 import type { EventCandidate } from '../features/import/eventGrouping'
-import { buildImportedEvents } from '../features/import/importEvents'
+import { buildChapterImport } from '../features/import/chapterImport'
 import { isVisible } from '../features/discovery/engine'
 import { importPhotos } from '../features/import/importPhotos'
 
@@ -33,6 +33,26 @@ export function validateArchive(value: unknown): value is MemoryData {
     scenes = ids(d.scenes),
     moments = ids(d.moments),
     contributions = ids(d.contributions)
+  const pending = d.pendingPhotos ?? []
+  if (
+    !Array.isArray(pending) ||
+    !unique(pending) ||
+    pending.some(
+      (p) =>
+        !events.has(p.eventId) ||
+        !people.has(p.participantId) ||
+        contributions.has(p.id) ||
+        typeof p.alt !== 'string' ||
+        typeof p.reason !== 'string' ||
+        !Array.isArray(p.mood) ||
+        p.mood.some((m) => typeof m !== 'string') ||
+        (p.fileId !== undefined && typeof p.fileId !== 'string') ||
+        (p.originalFileId !== undefined && typeof p.originalFileId !== 'string') ||
+        (p.capturedAt !== undefined && !Number.isFinite(p.capturedAt)) ||
+        (p.mediaUrl && !/^\/demo-assets\/[\w.-]+$/.test(p.mediaUrl)),
+    )
+  )
+    return false
   return (
     d.participants.every(
       (p) => typeof p.displayName === 'string' && /^#[\da-f]{6}$/i.test(p.color),
@@ -133,6 +153,7 @@ export function useMemories() {
   } catch {
     notice.value = '无法读取本地存档；当前仍可体验示例。'
   }
+  data.value.pendingPhotos ??= []
   const latest = createMemoryDemo()
   for (const e of data.value.events.filter((e) => e.isDemo)) {
     const seed = latest.events.find((v) => v.id === e.id)
@@ -237,7 +258,7 @@ export function useMemories() {
   function persist() {
     try {
       const archive = structuredClone(JSON.parse(JSON.stringify(data.value)) as MemoryData)
-      archive.contributions.forEach((c) => {
+      ;[...archive.contributions, ...(archive.pendingPhotos ?? [])].forEach((c) => {
         if (c.fileId) delete c.mediaUrl
       })
       localStorage.setItem(STORAGE, JSON.stringify(archive))
@@ -442,42 +463,23 @@ export function useMemories() {
     notice.value = '已保存在这个浏览器中。'
   }
   function createEvent(title: string, type: 'trip' | 'longActivity') {
-    const id = crypto.randomUUID(),
-      sceneId = crypto.randomUUID(),
-      momentId = crypto.randomUUID()
+    const id = crypto.randomUUID()
     data.value.events.push({
       id,
       title: title.trim(),
-      subtitle: '从这里开始，留下共同的记忆。',
+      subtitle: '导入照片，让这一段经历展开。',
       type,
       isDemo: false,
-      sceneIds: [sceneId],
+      sceneIds: [],
       participantIds: data.value.participants.map((p) => p.id),
     })
-    data.value.scenes.push({
-      id: sceneId,
-      eventId: id,
-      title: '第一章',
-      subtitle: '添加属于你们的第一段回忆。',
-      momentIds: [momentId],
-      environment: presets.neutral,
-    })
-    data.value.moments.push({
-      id: momentId,
-      sceneId,
-      title: '最初的时刻',
-      startAt: new Date().toISOString(),
-      label: '今日',
-      lighting: 'morning',
-      contributionIds: [],
-    })
-    navigate('scene', id, sceneId)
-    open('edit')
+    navigate('event', id)
+    open('import-photos')
   }
   function exportArchive() {
     // JSON contains metadata; photo blobs remain in IndexedDB.
     const archive: MemoryData = JSON.parse(JSON.stringify(data.value))
-    archive.contributions.forEach((c) => {
+    ;[...archive.contributions, ...(archive.pendingPhotos ?? [])].forEach((c) => {
       if (c.fileId) delete c.mediaUrl
     })
     const url = URL.createObjectURL(
@@ -495,10 +497,12 @@ export function useMemories() {
     groups: EventCandidate[],
     participantId: string,
   ) {
-    if (!data.value.participants.some((p) => p.id === participantId))
-      throw new Error('请选择记录者。')
-    const patch = buildImportedEvents(photos, groups, participantId, presets.neutral)
-    const selected = photos.filter((p) => patch.contributions.some((c) => c.id === p.id))
+    const chapter = data.value.events.find((e) => e.id === state.activeEventId)
+    if (!chapter) throw new Error('请先创建或选择篇章。')
+    if (!chapter.participantIds.includes(participantId)) throw new Error('请选择此篇章的记录者。')
+    if (!photos.length) throw new Error('没有可读取的图片，请检查格式或重新选择。')
+    const selected = photos.filter((p) => !p.duplicateOf)
+    const patch = buildChapterImport(selected, groups, chapter.id, participantId, presets)
     const urls = new Map(selected.map((p) => [p.id, URL.createObjectURL(p.displayBlob ?? p.file)]))
     try {
       await storeMediaBatch(
@@ -509,22 +513,112 @@ export function useMemories() {
       )
     } catch {
       urls.forEach((url) => URL.revokeObjectURL(url))
-      throw new Error('照片保存失败；候选事件未提交，请检查浏览器空间后重试。')
+      throw new Error('浏览器空间不足或照片保存失败；本次整理未提交，请重试或减少图片。')
     }
-    patch.contributions.forEach((c) => {
-      c.mediaUrl = urls.get(c.id)
-    })
+    for (const photo of [...patch.contributions, ...patch.pendingPhotos])
+      photo.mediaUrl = urls.get(photo.id)
+    const replacing = new Set(selected.map((p) => p.id))
+    for (const photo of data.value.pendingPhotos ?? [])
+      if (replacing.has(photo.id) && photo.mediaUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(photo.mediaUrl)
+        objectURLs.delete(photo.mediaUrl)
+      }
     urls.forEach((url) => objectURLs.add(url))
+    const times = [
+      ...data.value.contributions.filter((c) =>
+        data.value.moments.some((m) => m.id === c.momentId && chapter.sceneIds.includes(m.sceneId)),
+      ),
+      ...patch.contributions,
+    ]
+      .map((c) => c.capturedAt)
+      .filter((t): t is number => t !== undefined)
+      .sort((a, b) => a - b)
     data.value = {
       ...data.value,
-      events: [...data.value.events, ...patch.events],
+      events: data.value.events.map((e) =>
+        e.id === chapter.id
+          ? {
+              ...e,
+              sceneIds: [...e.sceneIds, ...patch.scenes.map((s) => s.id)],
+              startAt: times.length ? new Date(times[0]!).toISOString() : e.startAt,
+              endAt: times.length ? new Date(times.at(-1)!).toISOString() : e.endAt,
+            }
+          : e,
+      ),
       scenes: [...data.value.scenes, ...patch.scenes],
       moments: [...data.value.moments, ...patch.moments],
       contributions: [...data.value.contributions, ...patch.contributions],
+      pendingPhotos: [
+        ...(data.value.pendingPhotos ?? []).filter((p) => !replacing.has(p.id)),
+        ...patch.pendingPhotos,
+      ],
     }
     state.currentViewerId = participantId
-    navigate('event', patch.events[0]!.id)
-    notice.value = `已保存 ${patch.events.length} 个事件、${selected.length} 张照片。`
+    navigate('event', chapter.id)
+    notice.value = `已生成 ${patch.scenes.length} 个事件，${patch.pendingPhotos.length} 张照片保留在待整理区。`
+  }
+  async function pendingImportFiles(personId: string) {
+    const records = (data.value.pendingPhotos ?? []).filter(
+      (p) => p.eventId === state.activeEventId && p.participantId === personId,
+    )
+    const result = []
+    for (const p of records) {
+      const blob = await readMedia(p.originalFileId ?? p.fileId ?? '').catch(() => undefined)
+      if (blob)
+        result.push({
+          id: p.id,
+          file: new File([blob], p.alt, { type: blob.type }),
+          capturedAt: p.capturedAt,
+          gps: p.gps,
+          timeSource: p.timeEvidence?.source === 'exif' ? ('exif' as const) : ('user' as const),
+        })
+    }
+    return result
+  }
+  function placePendingPhoto(id: string, sceneId: string) {
+    const p = data.value.pendingPhotos?.find(
+      (p) => p.id === id && p.eventId === state.activeEventId,
+    )
+    if (!p) return
+    if (p.participantId !== state.currentViewerId) throw new Error('只能整理自己的照片。')
+    let scene = data.value.scenes.find((s) => s.id === sceneId && s.eventId === p.eventId)
+    if (sceneId === 'new') {
+      scene = {
+        id: crypto.randomUUID(),
+        eventId: p.eventId,
+        title: '一张照片的故事',
+        subtitle: '由你从待整理区单独收录。',
+        momentIds: [],
+        environment: presets.neutral,
+      }
+      data.value.scenes.push(scene)
+      data.value.events.find((e) => e.id === p.eventId)!.sceneIds.push(scene.id)
+    }
+    if (!scene) throw new Error('请选择此篇章中的事件。')
+    const timestamp = p.capturedAt ?? Date.now()
+    const moment = {
+      id: crypto.randomUUID(),
+      sceneId: scene.id,
+      title: '收录的照片',
+      startAt: new Date(timestamp).toISOString(),
+      label:
+        p.capturedAt === undefined ? '时间待确认' : new Date(timestamp).toLocaleString('zh-CN'),
+      lighting: 'overcast' as const,
+      contributionIds: [p.id],
+    }
+    data.value.moments.push(moment)
+    scene.momentIds.push(moment.id)
+    scene.momentIds.sort(
+      (a, b) =>
+        Date.parse(data.value.moments.find((m) => m.id === a)!.startAt) -
+        Date.parse(data.value.moments.find((m) => m.id === b)!.startAt),
+    )
+    const { eventId: _eventId, reason: _reason, ...photo } = p
+    void _eventId
+    void _reason
+    data.value.contributions.push({ ...photo, kind: 'photo', momentId: moment.id })
+    data.value.pendingPhotos = data.value.pendingPhotos!.filter((photo) => photo.id !== id)
+    notice.value = '照片已收录到事件，原文件仍保留。'
   }
   async function importArchive(file: File) {
     if (file.size > 2 * 1024 * 1024) throw new Error('存档不能超过 2 MB。')
@@ -539,7 +633,7 @@ export function useMemories() {
   async function hydrate() {
     for (const url of objectURLs) URL.revokeObjectURL(url)
     objectURLs.clear()
-    for (const c of data.value.contributions)
+    for (const c of [...data.value.contributions, ...(data.value.pendingPhotos ?? [])])
       if (c.fileId) {
         try {
           const blob = await readMedia(c.fileId)
@@ -590,6 +684,8 @@ export function useMemories() {
     syncURL,
     createEvent,
     saveImportedEvents,
+    pendingImportFiles,
+    placePendingPhoto,
     exportArchive,
     importArchive,
   }

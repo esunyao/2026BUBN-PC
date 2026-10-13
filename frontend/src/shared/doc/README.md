@@ -7,3 +7,5 @@ memoryTypes.ts 定义 Hero 标准化实体与 EnvironmentRecipe；lib/memoryStor
 Contribution 扩展 TimeEvidence、visibility、participantTags/tagsConsent 和客观 MediaAnalysis；Moment 支持 originGapId/endAt。用户原文不与 analysis.summary 混用。
 
 memoryStorage.storeMediaBatch 将同批照片写入一个 IndexedDB 事务；归类算法与模型保持在 features/import。
+
+MemoryData.pendingPhotos 可选，旧存档兼容；待整理记录有篇章/作者关联，不能伪造 momentId。原始 HEIC 与显示预览分别保存。

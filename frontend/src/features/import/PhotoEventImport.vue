@@ -2,17 +2,34 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import type { MemoryParticipant } from '../../shared/memoryTypes'
 import { analyzePhotos, type AnalyzedPhoto } from './photoAnalysis'
-import { defaultGrouping, groupPhotos, type EventCandidate } from './eventGrouping'
-import { generateChapterCopy } from './chapterDrafts'
+import { defaultGrouping, type EventCandidate } from './eventGrouping'
+import { chapterCandidates, generateChapterCopy } from './chapterDrafts'
 const props = defineProps<{
   participants: MemoryParticipant[]
   saving: boolean
   saveError?: string
+  chapterTitle: string
+  viewerId: string
+  knownPhotos: Array<{ id: string; hash?: string; personId: string }>
+  pendingFiles: (
+    personId: string,
+  ) => Promise<
+    Array<{
+      id: string
+      file: File
+      capturedAt?: number
+      gps?: AnalyzedPhoto['gps']
+      timeSource: 'exif' | 'user'
+    }>
+  >
 }>()
 const emit = defineEmits<{
   save: [photos: AnalyzedPhoto[], groups: EventCandidate[], person: string]
 }>()
-const person = ref(props.participants[0]?.id ?? '')
+const person = ref(
+  props.participants.find((p) => p.id === props.viewerId)?.id ?? props.participants[0]?.id ?? '',
+)
+const automatic = ref(true)
 const vision = ref(true),
   analyzing = ref(false),
   status = ref(''),
@@ -52,17 +69,34 @@ async function choose(event: Event) {
   controller = new AbortController()
   analyzing.value = true
   try {
+    status.value = '正在读回此篇章的待整理照片…'
+    const earlier = await props.pendingFiles(person.value)
     const result = await analyzePhotos(
-      files,
+      [...earlier.map((p) => p.file), ...files],
       person.value,
       vision.value,
       controller.signal,
       (message) => (status.value = message),
     )
     photos.value = result.photos
+    for (const photo of photos.value) {
+      const old = earlier.find((p) => p.file === photo.file)
+      if (old) {
+        photo.id = old.id
+        photo.capturedAt = old.capturedAt
+        photo.gps = old.gps
+        photo.timeSource = old.timeSource
+      }
+      const known = props.knownPhotos.find(
+        (p) => p.hash && p.hash === photo.hash && p.personId === person.value,
+      )
+      if (known) photo.duplicateOf = known.id
+    }
     failures.value = result.failures
-    groups.value = groupPhotos(photos.value, options)
+    groups.value = chapterCandidates(photos.value, options)
     await writeCopy()
+    if (!photos.value.length) throw new Error('没有可读取的图片，请查看失败提示。')
+    if (automatic.value) emit('save', photos.value, groups.value, person.value)
   } catch (e) {
     error.value =
       e instanceof Error && e.name === 'AbortError'
@@ -79,7 +113,7 @@ async function writeCopy() {
   const result = await generateChapterCopy(
     groups.value,
     photos.value,
-    '共同记忆',
+    props.chapterTitle,
     controller!.signal,
     (message) => (status.value = message),
     useAI.value,
@@ -91,7 +125,7 @@ async function writeCopy() {
 async function regroup() {
   controller = new AbortController()
   analyzing.value = true
-  groups.value = groupPhotos(photos.value, options)
+  groups.value = chapterCandidates(photos.value, options)
   try {
     await writeCopy()
   } catch {
@@ -141,13 +175,21 @@ function confirm() {
     error.value = '请选择要保存的照片。'
     return
   }
-  emit('save', photos.value, selectedGroups.value, person.value)
+  const selected = new Set(selectedGroups.value.flatMap((g) => g.photoIds))
+  emit(
+    'save',
+    photos.value.filter((p) => selected.has(p.id) || p.duplicateOf),
+    selectedGroups.value,
+    person.value,
+  )
 }
 </script>
 <template>
   <div class="photo-event-import">
     <p class="import-intro">
-      把一批照片整理成事件。先看候选分组，再由你决定哪些照片属于同一段经历。
+      导入「{{
+        chapterTitle
+      }}」的全部照片。系统整理成事件，写好标题和简介，完成后直接打开篇章。单张照片先保留在待整理区。
     </p>
     <fieldset :disabled="working">
       <div class="form-row">
@@ -176,6 +218,13 @@ function confirm() {
         的时间和位置会明确留待确认。
       </p>
     </fieldset>
+    <label class="import-check"
+      ><input
+        v-model="automatic"
+        type="checkbox"
+        :disabled="working"
+      />自动保存并打开篇章（关闭后可先手动调整）</label
+    >
     <p v-if="status" role="status">
       {{ status }} <button @click="controller?.abort()">取消整理</button>
     </p>
@@ -209,7 +258,8 @@ function confirm() {
         </p>
       </fieldset>
       <p>
-        {{ selectedGroups.length }} 个待确认事件 ·
+        {{ selectedGroups.filter((g) => g.photoIds.length >= 2).length }} 个事件 ·
+        {{ selectedGroups.filter((g) => g.photoIds.length === 1).length }} 张待整理 ·
         {{ selectedGroups.reduce((sum, g) => sum + g.photoIds.length, 0) }} 张已选照片
       </p>
       <fieldset :disabled="working" class="import-candidates">
@@ -227,16 +277,6 @@ function confirm() {
             </select></label
           >
           <p class="muted">候选依据：{{ group.reasons.join('；') }}。请确认是否属于同一事件。</p>
-          <label
-            v-if="
-              !group.photoIds.some((id) =>
-                Number.isFinite(photos.find((p) => p.id === id)?.capturedAt),
-              )
-            "
-            >事件日期（必填，不会冒充照片拍摄时间）<input
-              v-model="group.manualStart"
-              type="datetime-local"
-          /></label>
           <div class="import-photo-grid">
             <article
               v-for="photo in photos.filter((p) => group.photoIds.includes(p.id))"
@@ -288,13 +328,13 @@ function confirm() {
       <p v-if="duplicates.length" class="muted">
         已跳过 {{ duplicates.length }} 张完全相同的文件：{{
           duplicates.map((p) => p.filename).join('、')
-        }}。仅检测本批文件，不删除你的原图。
+        }}。检测本批文件与本人在此篇章已收录的照片，不删除原图。
       </p>
       <button class="primary" :disabled="working || !selectedGroups.length" @click="confirm">
         {{ saving ? '正在保存…' : '确认分组并保存事件' }}
       </button>
       <p class="muted">
-        保存至当前浏览器。每个事件内再按 GPS 300 米分章节、30
+        保存至当前浏览器。篇章内每组多张照片成为一个事件，再按 30
         分钟分时刻；无位置或时间的照片保持“待确认”，不会推断人名或生成你的心情。
       </p>
     </template>

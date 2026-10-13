@@ -14,7 +14,11 @@ const validTime = (time: TimeEvidence) =>
   ['exif', 'user', 'demo'].includes(time.source)
 const key = (type: string, scope: string, ids: string[]) =>
   `${type}:${scope}:${[...ids].sort().join('~')}`
-export function isVisible(c: Contribution, viewer: string, members: string[]): boolean {
+export function isVisible(
+  c: Pick<Contribution, 'visibility' | 'participantId'>,
+  viewer: string,
+  members: string[],
+): boolean {
   return (
     c.visibility === 'public' ||
     c.participantId === viewer ||

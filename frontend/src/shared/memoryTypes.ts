@@ -51,6 +51,7 @@ export interface MemoryEvent {
   isDemo: boolean
 }
 export interface Scene {
+  copySource?: 'local' | 'deepseek'
   id: string
   eventId: string
   title: string
@@ -70,6 +71,7 @@ export interface Moment {
   contributionIds: string[]
 }
 export interface Contribution {
+  contentHash?: string
   generatedCaption?: string
   captionSource?: 'local' | 'deepseek'
   originalFileId?: string
@@ -108,6 +110,7 @@ export interface ThenNowPair {
   comparisonMode: 'wipe' | 'sideBySide'
 }
 export interface MemoryData {
+  pendingPhotos?: PendingPhoto[]
   participants: MemoryParticipant[]
   events: MemoryEvent[]
   scenes: Scene[]
@@ -115,6 +118,10 @@ export interface MemoryData {
   contributions: Contribution[]
   links: SharedMomentLink[]
   pairs: ThenNowPair[]
+}
+export interface PendingPhoto extends Omit<Contribution, 'momentId' | 'kind'> {
+  eventId: string
+  reason: string
 }
 export type ViewMode =
   'scene' | 'focus' | 'shared' | 'then-now' | 'constellation' | 'edit' | 'create' | 'import-photos'

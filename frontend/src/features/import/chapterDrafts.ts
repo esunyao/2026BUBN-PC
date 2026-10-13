@@ -1,11 +1,20 @@
-import { groupPhotos, cosine, defaultGrouping, type EventCandidate } from './eventGrouping'
+import {
+  groupPhotos,
+  cosine,
+  defaultGrouping,
+  type EventCandidate,
+  type GroupingOptions,
+} from './eventGrouping'
 import { distanceMeters } from '../../shared/lib/geo'
 import type { AnalyzedPhoto } from './photoAnalysis'
 
-export function chapterCandidates(photos: AnalyzedPhoto[]): EventCandidate[] {
+export function chapterCandidates(
+  photos: AnalyzedPhoto[],
+  options: GroupingOptions = defaultGrouping,
+): EventCandidate[] {
   const known = groupPhotos(
     photos.filter((p) => Number.isFinite(p.capturedAt)),
-    defaultGrouping,
+    options,
   )
   const unknown: EventCandidate[] = []
   for (const photo of photos.filter((p) => !p.duplicateOf && !Number.isFinite(p.capturedAt))) {

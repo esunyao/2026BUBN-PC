@@ -5,3 +5,5 @@
 useDiscovery.ts 与 useMemories.ts 组合，协调反馈、返回位置、多人 Gap 原文与作者约束；贡献仍只写入 useMemories.data。
 
 照片归类由 features/import 产生候选，saveImportedEvents 校验记录者、保存 Blob，再更新单一 MemoryData；本地事件刷新时恢复到该事件有效 Demo 参与者。
+
+篇章创建不再生成虚假今日时刻，直接进入整批导入。pendingPhotos 与事件照片共用 Blob 存储、恢复和存档剔除逻辑；仅本人待整理图片可手动收录。

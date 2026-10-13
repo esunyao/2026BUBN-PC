@@ -9,3 +9,5 @@ discovery/ 实现 index/registry/privacy/dedupe/rank、Detectors、DiscoverPage 
 import/eventGrouping.ts 提供时间、固定位置锚点与图片特征的候选事件归类；候选需用户确认，不把相似照片自动当作同一真实事件。
 
 PhotoEventImport.vue 负责候选审阅；photoAnalysis.ts 在浏览器提取真实 MobileNet 图片向量，importEvents.ts 构造已确认事件，app 负责一次性提交。legacy analyzeMedia.ts 仍是预留接口，不代表新图片嵌入功能未实现。
+
+chapterImport.ts 构造篇章内事件及待整理照片；chapterCandidates 对可信时间和未知时间分别归组。PhotoEventImport 默认自动生成并提交，手动审阅为可选。

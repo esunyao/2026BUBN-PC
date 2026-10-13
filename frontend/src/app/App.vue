@@ -123,6 +123,30 @@ const backdrop = computed(() =>
 const eventScenes = computed(() =>
   data.value.scenes.filter((s) => s.eventId === state.activeEventId),
 )
+const pendingPhotos = computed(() =>
+  (data.value.pendingPhotos ?? []).filter(
+    (p) =>
+      p.eventId === state.activeEventId &&
+      isVisible(p, state.currentViewerId, event.value?.participantIds ?? []),
+  ),
+)
+const knownPhotos = computed(() =>
+  publicData.value.contributions
+    .filter((c) =>
+      data.value.moments.some(
+        (m) => m.id === c.momentId && event.value?.sceneIds.includes(m.sceneId),
+      ),
+    )
+    .map((c) => ({ id: c.id, hash: c.contentHash, personId: c.participantId })),
+)
+const pendingTargets = reactive<Record<string, string>>({})
+function placePending(id: string) {
+  try {
+    app.placePendingPhoto(id, pendingTargets[id] ?? 'new')
+  } catch (e) {
+    notice.value = e instanceof Error ? e.message : '整理失败'
+  }
+}
 const eventPeople = computed(() =>
   data.value.participants.filter((p) => event.value?.participantIds.includes(p.id)),
 )
@@ -283,7 +307,8 @@ async function archive(e: Event) {
 }
 function startPhotoImport() {
   editError.value = ''
-  open('import-photos')
+  if (state.page === 'home' || !event.value) open('create')
+  else open('import-photos')
 }
 function create() {
   if (createTitle.value.trim()) {
@@ -328,7 +353,7 @@ const dialogTitle = computed(
           @click="discovery.enter()"
         >
           记忆发现 / Discover</button
-        ><button @click="startPhotoImport">照片归类</button
+        ><button @click="startPhotoImport">导入篇章照片</button
         ><button @click="archiveInput?.click()">导入存档</button
         ><button @click="exportArchive">导出</button
         ><button class="header-create" @click="open(state.page === 'scene' ? 'edit' : 'create')">
@@ -404,8 +429,14 @@ const dialogTitle = computed(
             已确认草稿</small
           >
         </div>
-        <span class="chapter-count">{{ eventScenes.length }}<small>个记忆章节</small></span>
+        <span class="chapter-count">{{ eventScenes.length }}<small>个事件</small></span>
       </div>
+      <div class="overview-tools">
+        <button class="primary" @click="startPhotoImport">导入全部照片，自动整理 ↗</button>
+      </div>
+      <p v-if="!eventScenes.length" class="overview-note">
+        篇章已创建。一次选入所有照片，自动整理成事件；单张和线索不足的照片会保留在待整理区。
+      </p>
       <div class="scene-shelf">
         <a
           v-for="(s, i) in eventScenes"
@@ -414,13 +445,36 @@ const dialogTitle = computed(
           class="scene-cover"
           @click.prevent="navigate('scene', s.eventId, s.id)"
           ><MemoryImage :src="cover(s.id)" :alt="s.title" eager /><span class="eyebrow"
-            >CHAPTER {{ String(i + 1).padStart(2, '0') }} · {{ s.momentIds.length }} 个时刻</span
+            >EVENT {{ String(i + 1).padStart(2, '0') }} · {{ s.momentIds.length }} 个时刻</span
           >
           <h2>{{ s.title }} <span>↗</span></h2>
           <p>{{ s.subtitle }}</p></a
         >
       </div>
-      <p class="overview-note">通过照片进入章节。每一份文字，都留在它原本的作者身旁。</p>
+      <p v-if="eventScenes.length" class="overview-note">
+        通过照片进入事件。每一份原文，都留在它原本的作者身旁。
+      </p>
+      <section v-if="pendingPhotos.length" class="pending-shelf">
+        <h2>待整理 · {{ pendingPhotos.length }} 张</h2>
+        <p>
+          单张和线索不足的照片先收在这里。追加导入时，同一记录者的待整理照片会重新参与归类；也可以手动收录。
+        </p>
+        <div class="pending-grid">
+          <article v-for="photo in pendingPhotos" :key="photo.id">
+            <MemoryImage :src="photo.mediaUrl" :alt="photo.alt" />
+            <p>{{ photo.alt }}</p>
+            <small>{{ names[photo.participantId] }} · {{ photo.reason }}</small>
+            <template v-if="photo.participantId === state.currentViewerId"
+              ><label
+                >收录到<select v-model="pendingTargets[photo.id]">
+                  <option value="new">单独创建一个事件</option>
+                  <option v-for="s in eventScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
+                </select></label
+              ><button @click="placePending(photo.id)">收录照片</button></template
+            >
+          </article>
+        </div>
+      </section>
     </section>
     <DiscoverPage
       v-else-if="state.page === 'discover'"
@@ -629,7 +683,11 @@ const dialogTitle = computed(
         />
         <PhotoEventImport
           v-else-if="state.viewMode === 'import-photos'"
-          :participants="data.participants"
+          :participants="eventPeople"
+          :chapter-title="event?.title ?? ''"
+          :viewer-id="state.currentViewerId"
+          :known-photos="knownPhotos"
+          :pending-files="app.pendingImportFiles"
           :saving="busy"
           :save-error="editError"
           @save="savePhotoEvents"
@@ -722,7 +780,9 @@ const dialogTitle = computed(
               <option value="longActivity">长期活动</option>
             </select></label
           >
-          <p class="muted">创建第一章与今日时刻，然后添加照片或文字。数据保存在这个浏览器。</p>
+          <p class="muted">
+            创建篇章后，一次导入全部照片。系统自动生成事件、标题和简介，完成后直接浏览；没有照片也可以稍后再导入。
+          </p>
           <button class="primary" :disabled="!createTitle.trim()">创建并留下第一段记忆 ↗</button>
         </form>
       </MemoryDialog></Transition
