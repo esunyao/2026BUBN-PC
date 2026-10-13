@@ -1,0 +1,28 @@
+# 构建上下文排除清单
+# 位置有硬性要求：必须放在 build context 根目录（即本目录）才生效，
+# 放在 Dockerfile 旁边是没有用的。
+
+# 敏感信息：绝不能进构建上下文
+.env
+data/
+
+# 构建产物与缓存：避免每次构建传输数百 MB
+build/
+.gradle/
+.kotlin/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 版本控制与文档
+.git/
+.gitignore
+.gitattributes
+
+# 文档不参与构建
+doc/
+HELP.md
+README.md
+AGENTS.md

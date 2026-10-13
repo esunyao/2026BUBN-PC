@@ -1,0 +1,226 @@
+# ============================================================
+#  共同时刻世界 · 部署编排
+#
+#  运行目录就是本目录（services/），所有相对路径基于它：
+#      cd services
+#      docker compose up -d
+#
+#  模式由 .env 里的 HAS_DOMAIN 控制：
+#      true  = 有域名：letsencrypt 用阿里云 DNS 申请真证书
+#      false = 无域名：cert-init 生成自签名证书
+#  两种模式下 nginx 都会正常启动，不会卡在证书上。
+#
+#  改完 .env 后必须执行 docker compose up -d 才会生效，
+#  docker compose restart 不会重载环境变量。
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # 数据目录初始化（一次性）
+  # RustFS 容器以 uid 10001 运行，而 bind mount 目录默认属主是 root，
+  # 不修正会出现权限错误导致 rustfs 起不来。
+  # Windows 的 Docker Desktop 走 drvfs，chown 会被静默忽略，故允许失败。
+  # ----------------------------------------------------------
+  init-perms:
+    image: alpine:3.24
+    restart: "no"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./AppData:/appdata
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /appdata/rustfs_data /appdata/backend_data /appdata/certs
+        if chown -R 10001:10001 /appdata/rustfs_data 2>/dev/null; then
+          echo "[init-perms] rustfs_data 属主已设为 10001"
+        else
+          echo "[init-perms] chown 被跳过（Windows/drvfs 会忽略属主，属正常）"
+        fi
+        echo "[init-perms] 数据目录就绪"
+    networks:
+      - world-net
+
+  # ----------------------------------------------------------
+  # RustFS 对象存储
+  # 不对外发布任何端口：
+  #   · 后端走内网 http://rustfs:9000（不进 nginx，省一跳）
+  #   · 浏览器经 nginx 的 8444 反代访问（见 nginx 配置）
+  # ----------------------------------------------------------
+  rustfs:
+    image: rustfs/rustfs:latest
+    restart: always
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./AppData/rustfs_data:/data
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
+    networks:
+      - world-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------------
+  # 后端（Archipelago）—— 自动构建
+  # 首次 up 会自动执行 docker build 完成 maven/gradle 构建，无需手动 build
+  # ----------------------------------------------------------
+  backend:
+    build:
+      context: ../backend/Archipelago
+      dockerfile: ../../services/backend/Dockerfile
+    image: world-backend:local
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+
+      # OIDC 四项统一由 PUBLIC_ORIGIN 派生：
+      # 从域名切到 IP（或反过来）只需改 .env 里那一处
+      WORLD_AUTH_ISSUER: ${PUBLIC_ORIGIN}
+      WORLD_AUTH_REDIRECT_URI: ${PUBLIC_ORIGIN}/auth/callback
+      WORLD_AUTH_POST_LOGOUT_REDIRECT_URI: ${PUBLIC_ORIGIN}/
+      WORLD_AUTH_ALLOWED_ORIGIN: ${PUBLIC_ORIGIN}
+
+      # 演示账号
+      WORLD_DEMO_USERNAME: ${WORLD_DEMO_USERNAME:-demo}
+      WORLD_DEMO_PASSWORD: ${WORLD_DEMO_PASSWORD}
+
+      # 容器内固定路径（挂载到宿主机 AppData/backend_data 持久化）
+      WORLD_DATABASE_PATH: /app/data/world.db
+      WORLD_AUTH_KEY_PATH: /app/data/signing-key.json
+
+      # 对象存储：内网端点 + 与 rustfs 共用同一对凭据，避免两处维护
+      WORLD_STORAGE_ENABLED: ${WORLD_STORAGE_ENABLED:-true}
+      WORLD_STORAGE_ENDPOINT: http://rustfs:9000
+      WORLD_STORAGE_PUBLIC_ENDPOINT: ${WORLD_STORAGE_PUBLIC_ENDPOINT}
+      WORLD_STORAGE_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      WORLD_STORAGE_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      WORLD_STORAGE_BUCKET: ${WORLD_STORAGE_BUCKET}
+      WORLD_STORAGE_REGION: ${WORLD_STORAGE_REGION:-us-east-1}
+
+      NACOS_ENABLED: ${NACOS_ENABLED:-false}
+
+      # 告知 Spring 自己在一层反向代理之后，
+      # 否则它按 http 生成 OIDC 的绝对链接，登录流程会指向错误协议
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - ./AppData/backend_data:/app/data
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
+      rustfs:
+        condition: service_started
+    networks:
+      - world-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------------
+  # 证书申请与续订（阿里云 DNS-01）
+  #
+  # 无域名模式下 entrypoint.sh 会打印提示并 exit 0；
+  # restart 必须是 on-failure —— 用 always 会让它陷入无限重启循环。
+  #
+  # 用 env_file 而非逐个 environment：这里是唯一需要阿里云 AK 的容器，
+  # backend 不接收这些凭据。
+  # ----------------------------------------------------------
+  letsencrypt:
+    build: ./letsencrypt
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      # 整树挂载：certbot 的 live/<name>/*.pem 是指向 ../../archive/<name>/ 的
+      # 相对符号链接，只挂 live/ 子目录会让链接逃出挂载点变成断链
+      - ./AppData/certs:/etc/letsencrypt
+    networks:
+      - world-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------------
+  # 证书保障（一次性）
+  #
+  # 唯一职责：保证 nginx 启动时 ./AppData/certs/active/ 下的证书一定存在。
+  #   · 已有 certbot 真证书 -> active 指向 live/<name>
+  #   · 无域名模式        -> 生成自签名，active 指向 selfsigned
+  #   · 有域名模式        -> 等待签发，超时则降级自签名
+  # 所有分支都 exit 0，这就是 nginx 不会卡住的原因。
+  # ----------------------------------------------------------
+  cert-init:
+    build: ./cert-init
+    restart: "no"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      HAS_DOMAIN: ${HAS_DOMAIN}
+      DOMAIN: ${DOMAIN}
+      CERT_NAME: ${CERT_NAME}
+      SERVER_NAME: ${SERVER_NAME}
+      CERT_WAIT_TIMEOUT: ${CERT_WAIT_TIMEOUT:-300}
+    volumes:
+      - ./AppData/certs:/certs
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
+    networks:
+      - world-net
+
+  # ----------------------------------------------------------
+  # nginx：TLS 终止 + 反向代理
+  # ----------------------------------------------------------
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      SERVER_NAME: ${SERVER_NAME}
+      # 只允许替换 SERVER_NAME 这一个变量，
+      # 防止配置里 $host 之类的 nginx 运行时变量被误替换。
+      # $$ 是 compose 的转义，容器内实际得到 ^SERVER_NAME$
+      NGINX_ENVSUBST_FILTER: "^SERVER_NAME$$"
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${STORAGE_PORT:-8444}:8444"
+    volumes:
+      # 由官方镜像的 envsubst 机制生成 /etc/nginx/conf.d/default.conf
+      - ./nginx/conf.d/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # 整树只读挂载：active -> live -> archive 的符号链接链必须落在
+      # 同一个挂载点内才能解析得开
+      - ./AppData/certs:/etc/nginx/certs:ro
+    depends_on:
+      # 等证书就绪（cert-init 跑完且成功），这是"nginx 不卡住"的关键
+      cert-init:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+    networks:
+      - world-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  world-net:
+    name: world-net
+    driver: bridge
