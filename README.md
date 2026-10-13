@@ -54,18 +54,19 @@ pnpm preview
 
 build 同时执行类型检查和生产打包，产物在 frontend/dist。preview 用于本地查看构建产物，地址以终端输出为准。已有验证结果见 [验证记录](frontend/doc/verification.md)。
 
-## 4. 可选：开发后端骨架
+## 4. 开发单节点后端
 
-backend/Archipelago 使用 Kotlin、Spring Boot 和 Java 21，Gradle Wrapper 已随仓库提供。安装 JDK 21，确保 java --version 与 JAVA_HOME 指向该版本，从仓库根目录执行：
+backend/Archipelago 使用 Kotlin、Spring Boot 4.1.0 和 Java 21，提供 OAuth/OIDC、SQLite 事件元数据与 RustFS 预签名。当前前端未接入后端，仍可独立演示。Gradle Wrapper 已随仓库提供，安装 JDK 21 并确认 JAVA_HOME 后，从仓库根目录执行：
 
 ```sh
 cd backend/Archipelago
+cp .env.example .env
 ./gradlew test
 ./gradlew build
 ./gradlew bootRun
 ```
 
-Windows PowerShell 或命令提示符进入 backend/Archipelago 后，使用 .\gradlew.bat test、.\gradlew.bat build、.\gradlew.bat bootRun。当前后端是初始化骨架，尚未提供前端调用的 HTTP 业务接口；本机已安装 Temurin JDK 21.0.12.1，Gradle test/build 和打包 JAR 启动通过。当前仅有 Spring 上下文，启动后正常退出，不监听 8080。
+首次复制后需先编辑 .env 并填写初始演示密码，已有 .env 不要覆盖。Windows PowerShell 或命令提示符使用 .\gradlew.bat。详细配置、RustFS 准备及验收结果见 [后端 README](backend/Archipelago/README.md)，字段见 [OpenAPI](backend/Archipelago/doc/openapi.yaml) 与 [数据库说明](backend/Archipelago/doc/database.md)。
 
 ## 5. Discovery 与后端协作
 
@@ -79,6 +80,7 @@ Windows PowerShell 或命令提示符进入 backend/Archipelago 后，使用 .\g
 | --- | --- |
 | 前端环境与命令 | [frontend/README.md](frontend/README.md) |
 | 架构与数据流 | [frontend/doc/README.md](frontend/doc/README.md) |
+| 后端初始化与数据流 | [backend/Archipelago/README.md](backend/Archipelago/README.md) → [后端总览](backend/Archipelago/doc/README.md) |
 | 需求、模拟图与原型截图 | [doc-bg/20261013mvp](doc-bg/20261013mvp/README.md) |
 | Agent 协作规范 | [AGENTS.md](AGENTS.md) |
 | AI 使用与过程记录 | [AI_USAGE.md](AI_USAGE.md) |
