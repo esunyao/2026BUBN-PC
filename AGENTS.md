@@ -34,6 +34,7 @@
 
 | 任务 | 入口 |
 | --- | --- |
+| 首次克隆与环境初始化 | [`README.md`](./README.md) → [`frontend/README.md`](./frontend/README.md) |
 | 了解前端与启动命令 | [`frontend/AGENTS.md`](./frontend/AGENTS.md) → [`frontend/doc/README.md`](./frontend/doc/README.md) → [`frontend/package.json`](./frontend/package.json) |
 | 应用组装与会话状态 | [`app/AGENTS.md`](./frontend/src/app/AGENTS.md) → [`app/doc`](./frontend/src/app/doc/README.md) |
 | 地图、回忆、导入与回放 | [`features/AGENTS.md`](./frontend/src/features/AGENTS.md) → [`features/doc`](./frontend/src/features/doc/README.md) |
