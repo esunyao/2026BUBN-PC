@@ -12,11 +12,11 @@
 #    selfsigned/         本脚本生成的自签名证书，certbot 不扫描此目录
 #    active/             当前生效证书的符号链接，nginx 只读这里
 #
-#  本脚本任何分支都以 exit 0 结束——这是 nginx 能被创建的前提
+#  仅在证书准备成功后返回 0；失败则阻止 nginx 被创建
 #  （nginx 依赖 cert-init 的 service_completed_successfully 条件）。
 # ============================================================
 
-set -u
+set -eu
 
 CERTS_DIR="${CERTS_DIR:-/certs}"
 LIVE_DIR="$CERTS_DIR/live"
@@ -47,7 +47,8 @@ log() { echo "[cert-init] $*"; }
 # 比只看文件存在更可靠（避免误认残留文件为有效证书）
 # ------------------------------------------------------------
 real_cert_ready() {
-    [ -f "$CERTS_DIR/renewal/$CERT_NAME.conf" ] && [ -r "$LIVE_CERT_DIR/fullchain.pem" ]
+    [ -f "$CERTS_DIR/renewal/$CERT_NAME.conf" ] &&
+        [ -r "$LIVE_CERT_DIR/fullchain.pem" ] && [ -r "$LIVE_CERT_DIR/privkey.pem" ]
 }
 
 # ------------------------------------------------------------
@@ -57,10 +58,9 @@ real_cert_ready() {
 # ------------------------------------------------------------
 link_active() {
     _target="$1"    # 相对 CERTS_DIR 的路径，如 "live/foo" 或 "selfsigned"
-    rm -rf "$ACTIVE_DIR"
     mkdir -p "$ACTIVE_DIR"
-    ln -s "../$_target/fullchain.pem" "$ACTIVE_DIR/fullchain.pem"
-    ln -s "../$_target/privkey.pem" "$ACTIVE_DIR/privkey.pem"
+    ln -sfn "../$_target/fullchain.pem" "$ACTIVE_DIR/fullchain.pem"
+    ln -sfn "../$_target/privkey.pem" "$ACTIVE_DIR/privkey.pem"
     log "active/ 已指向 $_target"
 }
 
@@ -133,7 +133,7 @@ main() {
     [ -d "$LIVE_DIR" ] || log "提示：live/ 目录尚不存在（certbot 首次签发时才会创建）"
 
     # 快速路径：已有真证书，直接启用（二次 up -d 时亚秒级完成）
-    if real_cert_ready; then
+    if [ "$HAS_DOMAIN" != "false" ] && real_cert_ready; then
         log "已存在 certbot 签发的有效证书"
         link_active "live/$CERT_NAME"
         log "===== 完成 ====="
@@ -143,7 +143,7 @@ main() {
     # 无域名模式：直接自签名，不做任何等待
     if [ "$HAS_DOMAIN" = "false" ]; then
         log "无域名模式（HAS_DOMAIN=false），使用自签名证书"
-        generate_selfsigned || log "警告：证书生成失败，nginx 可能无法启动"
+        generate_selfsigned || exit 1
         link_active "selfsigned"
         log "===== 完成 ====="
         exit 0
@@ -161,8 +161,13 @@ main() {
         log "#           域名未解析、USE_TEST_ENV 与证书用途不符"
         log "# 若稍后签发成功，执行 docker compose restart nginx 加载真证书"
         log "############################################################"
-        generate_selfsigned || log "警告：证书生成失败，nginx 可能无法启动"
-        link_active "selfsigned"
+        generate_selfsigned || exit 1
+        # 防止生成自签名期间 certbot 恰好完成签发后被覆盖。
+        if real_cert_ready; then
+            link_active "live/$CERT_NAME"
+        else
+            link_active "selfsigned"
+        fi
     fi
 
     log "===== 完成 ====="

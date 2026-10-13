@@ -112,7 +112,7 @@ services:
       # 否则它按 http 生成 OIDC 的绝对链接，登录流程会指向错误协议
       SERVER_FORWARD_HEADERS_STRATEGY: framework
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     volumes:
       - ./AppData/backend_data:/app/data
     depends_on:
@@ -163,7 +163,7 @@ services:
   #   · 已有 certbot 真证书 -> active 指向 live/<name>
   #   · 无域名模式        -> 生成自签名，active 指向 selfsigned
   #   · 有域名模式        -> 等待签发，超时则降级自签名
-  # 所有分支都 exit 0，这就是 nginx 不会卡住的原因。
+  # 证书生成失败必须非零退出，阻止 nginx 加载缺失的证书。
   # ----------------------------------------------------------
   cert-init:
     build: ./cert-init
@@ -192,10 +192,11 @@ services:
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       SERVER_NAME: ${SERVER_NAME}
-      # 只允许替换 SERVER_NAME 这一个变量，
+      HTTPS_PORT: ${HTTPS_PORT:-443}
+      # 只允许替换站点名与公开 HTTPS 端口，
       # 防止配置里 $host 之类的 nginx 运行时变量被误替换。
-      # $$ 是 compose 的转义，容器内实际得到 ^SERVER_NAME$
-      NGINX_ENVSUBST_FILTER: "^SERVER_NAME$$"
+      # $$ 是 compose 的转义，保留 nginx 自身的运行时变量。
+      NGINX_ENVSUBST_FILTER: "^(SERVER_NAME|HTTPS_PORT)$$"
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"

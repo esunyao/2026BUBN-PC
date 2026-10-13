@@ -4,7 +4,7 @@
 #  容器启动时由 nginx 官方镜像的 20-envsubst-on-templates.sh 处理：
 #    /etc/nginx/templates/default.conf.template  ->  /etc/nginx/conf.d/default.conf
 #
-#  只有 ${SERVER_NAME} 会被替换（环境变量 NGINX_ENVSUBST_FILTER 已限定），
+#  只有 ${SERVER_NAME} 和 ${HTTPS_PORT} 会被替换（环境变量 NGINX_ENVSUBST_FILTER 已限定），
 #  $host / $request_uri 等 nginx 运行时变量原样保留。
 #
 #  证书路径写死为 active/ 指针，不区分模式：
@@ -22,7 +22,7 @@ server {
     listen      [::]:80;
     server_name ${SERVER_NAME};
 
-    return 301 https://$host$request_uri;
+    return 301 https://$host:${HTTPS_PORT}$request_uri;
 }
 
 
@@ -44,10 +44,13 @@ server {
     # 传给后端的真实来源信息。
     # 后端侧需配合 SERVER_FORWARD_HEADERS_STRATEGY=FRAMEWORK
     #（在 docker-compose.yaml 里已设置），否则 OIDC 生成的绝对链接会指向 http。
-    proxy_set_header Host              $host;
+    proxy_set_header Host              $http_host;
     proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For   $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Port  ${HTTPS_PORT};
+    proxy_set_header X-Forwarded-Host  $http_host;
+    proxy_set_header Forwarded         "";
     proxy_read_timeout 120s;
 
     # 根路径暂无前端产物（前端本轮不容器化）。
@@ -108,7 +111,7 @@ server {
         # 必须透传原始 Host（含端口），改写会导致 SignatureDoesNotMatch。
         proxy_set_header Host              $http_host;
         proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For   $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # 让 CORS 预检与响应头正常透传给浏览器

@@ -45,8 +45,8 @@ docker compose up -d
 
 | 入口 | 地址 |
 | --- | --- |
-| 后端 API / OIDC | `https://<域名>/` 或 `http://<IP>/`（经 nginx 443） |
-| 后端直连（调试） | `http://<IP>:8080/.well-known/openid-configuration` |
+| 后端 API / OIDC | `https://<域名>/` 或 `https://<IP>/`（经 nginx 443） |
+| 后端直连（调试） | `http://127.0.0.1:8080/.well-known/openid-configuration`（仅宿主机） |
 | 对象存储（浏览器用） | `https://<域名>:8444` |
 
 ## 两种模式
@@ -64,7 +64,7 @@ docker compose up -d
 - `DOMAIN`（通配符需 DNS-01，本方案已用）、`EMAIL`
 - `ALIYUN_ACCESS_KEY_ID` / `ALIYUN_ACCESS_KEY_SECRET`（RAM 子账号，授予 `AliyunDNSFullAccess`）
 - 域名的 A 记录指向本机
-- 证书要覆盖对象存储地址的主机名（如 `api.` 子域）——用通配符证书最省事，
+- 证书要覆盖对象存储地址的主机名（如 `api.` 子域）——同时申请根域名和通配符域名（如 `DOMAIN="*.example.com example.com"`），
   否则浏览器访问 `https://api.<域名>:8444` 会报证书不匹配
 
 ### `HAS_DOMAIN=false`（无域名）
@@ -72,8 +72,11 @@ docker compose up -d
 `letsencrypt` 打印提示后正常退出（`Exited (0)`，不会重启刷屏），
 `cert-init` 直接生成自签名证书，nginx 照常以 HTTPS 启动。
 
-浏览器会有证书警告，点"继续访问"即可。把 `SERVER_NAME` 设为 `_`、`PUBLIC_ORIGIN` 设为
-`http://<服务器IP>` 即可整体降级到 IP 访问。
+把 `SERVER_NAME` 设为服务器实际 IP、`PUBLIC_ORIGIN` 设为 `https://<服务器IP>`，
+`WORLD_STORAGE_PUBLIC_ENDPOINT` 设为 `https://<服务器IP>:8444`。两种模式均使用 HTTPS。
+自签名证书需要在客户端安装并信任（文件位于 `AppData/certs/selfsigned/fullchain.pem`），
+否则浏览器的 OIDC 请求和对象存储请求可能失败；仅跳过主站警告不保证跨端口请求可用。
+修改 IP 后需重新生成对应 SAN 的自签名证书，不能继续复用旧 IP 的证书。
 
 ## 证书目录的约定
 
@@ -92,10 +95,12 @@ nginx 配置里固定引用 `active/`，两种模式零分支。
 
 ## 运维须知
 
+- **自定义 HTTPS 端口**：`PUBLIC_ORIGIN` 必须包含 `HTTPS_PORT`（非 443 时）；存储地址同样必须匹配 `STORAGE_PORT`。
+- **调试端口仅绑定回环地址**：远程调试请使用 SSH 隧道，不要直接开放后端端口。nginx 会覆盖来源头，后端只信任这层代理。
 - **改 `.env` 后必须 `docker compose up -d`**。`docker compose restart` 只是重启进程，
   **永远不会**重新读取环境变量，这是最常见的"改了不生效"原因。
 - **certbot 续订后 nginx 不会自动加载新证书**。证书 90 天有效、到期前 30 天自动续订，
-  续订成功后需执行 `docker compose restart nginx`。
+  签发/续订成功后脚本会将 `active/` 指向真证书（含首次等待超时后才签发的情况），随后需执行 `docker compose restart nginx`。
   （容器内 crond 每天 02:00（`TZ` 指定时区）执行续订检查）
 - **`WORLD_STORAGE_PUBLIC_ENDPOINT` 必须是浏览器可达的地址**，
   它会被写进预签名 URL。填成内网地址（如 `http://rustfs:9000`）会导致前端图片全部加载失败。
