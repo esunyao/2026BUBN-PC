@@ -1,5 +1,7 @@
 # 共同记忆 · Shared Memories
 
+> VibeCoding 项目，理性看待
+
 照片优先的 Vue 3 + TypeScript 交互体验。Home → Event → Scene / Focus，人物显影、交汇时刻、时间轴、昨日与今日、记忆星图和四种自适应环境可独立演示；新增 Discover、其他作者视角与无照片时段补写。后端沿用 Kotlin / Spring Boot / Java 21 架构。
 
 ## 1. 准备环境
