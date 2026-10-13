@@ -1,4 +1,4 @@
-import './shared/styles/theme.css'
+import './shared/styles/hero.css'
 
 import { createApp } from 'vue'
 import App from './app/App.vue'
