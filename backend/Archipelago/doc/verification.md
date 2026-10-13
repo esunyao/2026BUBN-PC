@@ -38,7 +38,7 @@ pnpm --package=@redocly/cli dlx redocly lint doc/openapi.yaml --extends=spec --f
 
 ## 尚未验证
 
-- 用户实际 RustFS 实例的 PUT、HEAD、COPY、GET、目标镜像版本以及桶 CORS／生命周期。等待用户填写本地 .env 并通知后进行真实联调。
+- 用户实际 RustFS 实例的 PUT、HEAD、COPY、GET、目标镜像版本以及桶 CORS／生命周期。用户最后明确要求直接提交，不等待 RustFS 测试；本轮未进行真实桶联调。
 - 已部署 Nacos 的成功配置下载、namespace/group 与认证；已验证的是默认关闭及不可达时回退。
 - 真实前端的登录回调、直传和 URL 过期刷新：本轮前端不得修改，未接入后端。
 
