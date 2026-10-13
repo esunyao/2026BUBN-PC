@@ -1,0 +1,63 @@
+name: DeepSeek Code Review
+
+on:
+  # PR 打开 / 重新打开 / 有新提交时自动审查
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+  # 在 PR 评论中 @deepseek-cr 可手动触发一次审查
+  issue_comment:
+    types: [created]
+
+# 需要写权限才能在 PR 上提交 review 评论，
+# 否则会报 "GraphQL: Resource not accessible by integration (addComment)"
+permissions:
+  contents: read
+  pull-requests: write
+
+# 同一 PR 连续 push 时取消上一次未完成的审查，避免重复跑和重复评论
+concurrency:
+  group: deepseek-cr-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: DeepSeek Code Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # issue_comment 事件只在 PR（而非普通 issue）上触发审查
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request != null
+    steps:
+      - name: Run DeepSeek CR
+        uses: hustcer/deepseek-review@v1.21
+        with:
+          # 需在仓库 Settings → Secrets and variables → Actions 中配置该 Secret
+          chat-token: ${{ secrets.CHAT_TOKEN }}
+
+          # 模型与接口：默认使用官方 DeepSeek API
+          # 可换成 deepseek-reasoner 获得更强的推理能力（更慢、更贵）
+          model: deepseek-v4-flash
+          base-url: https://api.deepseek.com
+
+          # 评论中命中该字符串即触发审查（仅 OWNER/MEMBER/COLLABORATOR 有效）
+          watch-mention: '@deepseek-cr'
+          allowed-associations: 'OWNER,MEMBER,COLLABORATOR'
+
+          # 跳过锁文件、构建产物、压缩文件等无审查价值的内容
+          exclude-patterns: 'pnpm-lock.yaml,package-lock.json,yarn.lock,*.lock,*.min.js,*.min.css,*.map,dist/**,build/**,out/**,target/**,**/generated/**'
+
+          sys-prompt: |
+            你是一位资深工程师，负责审查 GitHub Pull Request 的代码变更。
+            本项目包含 Kotlin 后端、前端以及 Rust 服务。请重点关注：
+            1. 正确性：逻辑错误、边界条件、空值处理、异常吞没
+            2. 安全性：注入风险、鉴权/越权、密钥或凭据硬编码、不安全的反序列化、路径穿越
+            3. 并发与资源：竞态、事务边界、连接/文件句柄释放、阻塞调用
+            4. 可维护性：重复逻辑、命名与抽象层次、缺失的必要校验
+
+            输出要求：
+            - 使用中文回复
+            - 按严重程度分组：❗阻塞问题 / ⚠️警告 / 💡建议
+            - 每条明确指出涉及的文件与代码位置，并给出可直接落地的修改方案
+            - 不要复述整个 diff；没有问题的方面不必强行凑数
+            - 若本次变更没有问题，直接说明可以合并
+
+          user-prompt: '请审查以下代码变更：'
