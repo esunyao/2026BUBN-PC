@@ -36,3 +36,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+
+.env
