@@ -40,6 +40,8 @@
 | 地图、回忆、导入与回放 | [`features/AGENTS.md`](./frontend/src/features/AGENTS.md) → [`features/doc`](./frontend/src/features/doc/README.md) |
 | 小船自由移动与自动航行 | [`navigation/AGENTS.md`](./frontend/src/navigation/AGENTS.md) → [`navigation/doc`](./frontend/src/navigation/doc/README.md) |
 | 公共类型、组件与像素资产 | [`shared/AGENTS.md`](./frontend/src/shared/AGENTS.md) → [`shared/doc`](./frontend/src/shared/doc/README.md) |
+| 后端初始化与模块职责 | [`backend/AGENTS.md`](./backend/AGENTS.md) → [`Archipelago/AGENTS.md`](./backend/Archipelago/AGENTS.md) → [`后端 README`](./backend/Archipelago/README.md) |
+| 后端接口与数据库字段 | [`OpenAPI`](./backend/Archipelago/doc/openapi.yaml) → [`SQLite 结构`](./backend/Archipelago/doc/database.md) |
 | 查看 MVP 演示与模拟图 | [`doc-bg/20261013mvp/`](./doc-bg/20261013mvp/README.md) |
 | 查看 AI 使用情况 | [`AI_USAGE.md`](./AI_USAGE.md) → [`ai-logs/`](./ai-logs/) |
 | 查看比赛提交要求 | [BNBUPC 2026 规则说明（公开转载）](https://www.yeyulingfeng.com/a/1140812.html) |
@@ -62,6 +64,7 @@
 ## 验证与提交
 
 - 前端依赖管理以 [`frontend/package.json`](./frontend/package.json) 和 [`frontend/pnpm-lock.yaml`](./frontend/pnpm-lock.yaml) 为准，使用 pnpm。修改前端后运行相关检查；类型检查与生产构建命令见 `package.json`。
+- 后端使用 Java 21、Spring Boot 4.1.0 和 Gradle Wrapper；命令、配置与测试入口见 [`后端 README`](./backend/Archipelago/README.md)。后端任务不隐式授权修改前端；本轮用户明确要求前端不得修改。
 - 提交遵循英文 Conventional Commits：`<type>(<scope>): <short English summary>`，`scope` 可省略。常用 `type` 为 `feat`、`fix`、`docs`、`refactor`、`test`、`chore`、`build`、`ci`。一次提交聚焦一项可验证的工作。
 - 分支由用户维护，Agent 不自行创建或切换分支。
 - Agent 完成并验证一项仓库工作后通常自动提交；用户明确要求暂不提交时除外。提交前检查 `git status`、暂存文件和 diff，只暂存本次相关文件，不覆盖他人改动。不要自动推送。

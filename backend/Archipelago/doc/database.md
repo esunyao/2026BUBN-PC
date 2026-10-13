@@ -6,6 +6,8 @@
 
 关系：`users → events → participants / places / photos`。每张照片引用同一事件的拍摄者和可选地点。所有 ID 为 UUID 字符串；时间字段是 UTC Unix 毫秒，不保存本地时区字符串。
 
+Flyway 另维护 flyway_schema_history 记录已执行的迁移版本和校验值，它不是业务表；备份与恢复需连同数据库保留。
+
 SQLite 配置启用外键、WAL 和忙等待；单连接池串行执行数据库事务。RustFS 网络请求在事务外执行，确认成功后用短事务分配地点和修改照片状态。
 
 ## users：登录账号

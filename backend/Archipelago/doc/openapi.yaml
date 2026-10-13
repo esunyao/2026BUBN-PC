@@ -1,0 +1,368 @@
+openapi: 3.0.3
+info:
+  title: Shared Moment World API
+  version: 0.1.0
+  description: |
+    Single-node MVP. Event owners manage photographer labels and image metadata.
+    Image bytes travel directly between the browser and RustFS.
+    Timestamps are UTC Unix milliseconds. OIDC uses authorization code with PKCE S256.
+    This contract does not mean the unchanged frontend already integrates these APIs.
+servers:
+  - url: http://localhost:8080
+    description: Local development; deployment issuer and endpoint are configurable
+security:
+  - oauth2: [world]
+paths:
+  /api/v1/me:
+    get:
+      operationId: currentUser
+      responses:
+        '200':
+          description: Current account
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, username]
+                properties:
+                  id: {type: string, format: uuid}
+                  username: {type: string}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/v1/events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: Events owned by current account
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Event'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        '201':
+          description: Created event
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Event'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/v1/events/{eventId}:
+    parameters:
+      - {$ref: '#/components/parameters/EventId'}
+    get:
+      operationId: getEvent
+      responses:
+        '200':
+          description: Stable islands and READY photos; obtain URLs separately
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event, participants, islands, photos]
+                properties:
+                  event: {$ref: '#/components/schemas/Event'}
+                  participants: {type: array, items: {$ref: '#/components/schemas/Participant'}}
+                  islands: {type: array, items: {$ref: '#/components/schemas/Island'}}
+                  photos: {type: array, items: {$ref: '#/components/schemas/Photo'}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/events/{eventId}/participants:
+    parameters:
+      - {$ref: '#/components/parameters/EventId'}
+    post:
+      operationId: addPhotographer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 60}
+                color: {type: string, pattern: '^#[0-9a-fA-F]{6}$', default: '#c77455'}
+      responses:
+        '201':
+          description: Photographer label; not a login account
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Participant'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/events/{eventId}/photos/presign:
+    parameters:
+      - {$ref: '#/components/parameters/EventId'}
+    post:
+      operationId: presignUpload
+      description: Creates PENDING metadata. PUT bytes directly to uploadUrl using returned headers, then confirm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [photographerId, filename, contentType, sizeBytes]
+              properties:
+                photographerId: {type: string, format: uuid}
+                filename: {type: string, minLength: 1, maxLength: 255}
+                contentType: {type: string, enum: [image/jpeg, image/png, image/webp]}
+                sizeBytes: {type: integer, format: int64, minimum: 1, description: Default limit 20971520 bytes; configurable}
+                caption: {type: string, maxLength: 500, default: ''}
+                gps: {$ref: '#/components/schemas/NullableGps'}
+                capturedAt: {type: integer, format: int64, minimum: 0, nullable: true}
+      responses:
+        '201':
+          description: Short-lived direct PUT capability
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [photoId, uploadUrl, headers, expiresAt]
+                properties:
+                  photoId: {type: string, format: uuid}
+                  uploadUrl: {type: string, format: uri}
+                  headers: {type: object, additionalProperties: {type: string}}
+                  expiresAt: {type: integer, format: int64}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/StorageUnavailable'}
+  /api/v1/events/{eventId}/photos/{photoId}/confirm:
+    parameters:
+      - {$ref: '#/components/parameters/EventId'}
+      - {$ref: '#/components/parameters/PhotoId'}
+    post:
+      operationId: confirmUpload
+      description: HEAD/COPY/HEAD verifies and publishes metadata. Repeated READY confirmation is idempotent.
+      responses:
+        '200':
+          description: Confirmed photo, possibly waiting for manual placement
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Photo'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '410':
+          description: Pending upload expired; request a new upload
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
+        '503': {$ref: '#/components/responses/StorageUnavailable'}
+  /api/v1/events/{eventId}/photos/{photoId}/placement:
+    parameters:
+      - {$ref: '#/components/parameters/EventId'}
+      - {$ref: '#/components/parameters/PhotoId'}
+    patch:
+      operationId: placePhoto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Supply exactly one nonempty islandId or newPlaceName
+              properties:
+                islandId: {type: string, format: uuid, nullable: true}
+                newPlaceName: {type: string, minLength: 1, maxLength: 100, nullable: true}
+              oneOf:
+                - required: [islandId]
+                  properties:
+                    islandId: {type: string, format: uuid}
+                - required: [newPlaceName]
+                  properties:
+                    newPlaceName: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        '200':
+          description: Photo assigned to a stable island
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Photo'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/events/{eventId}/photos/download-urls:
+    parameters:
+      - {$ref: '#/components/parameters/EventId'}
+    post:
+      operationId: presignDownloads
+      description: Authorize every READY photo before signing. Never accepts arbitrary object keys.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [photoIds]
+              properties:
+                photoIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Temporary GET URLs; default validity 15 minutes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [urls]
+                properties:
+                  urls:
+                    type: array
+                    items:
+                      type: object
+                      required: [photoId, url, expiresAt]
+                      properties:
+                        photoId: {type: string, format: uuid}
+                        url: {type: string, format: uri}
+                        expiresAt: {type: integer, format: int64}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/StorageUnavailable'}
+  /.well-known/openid-configuration:
+    get:
+      operationId: discoverOidc
+      security: []
+      responses:
+        '200':
+          description: Library-managed OIDC discovery; includes authorization, token, JWKS, UserInfo and logout endpoints
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+  /oauth2/jwks:
+    get:
+      operationId: publicSigningKeys
+      security: []
+      responses:
+        '200':
+          description: Public JWK set; never private key material
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: Public world-web client; authorization code with mandatory S256 PKCE; API accepts Access Token only
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth2/authorize
+          tokenUrl: /oauth2/token
+          scopes:
+            openid: OIDC identity
+            profile: Basic identity profile
+            world: Event and memory API
+  parameters:
+    EventId: {name: eventId, in: path, required: true, schema: {type: string, format: uuid}}
+    PhotoId: {name: photoId, in: path, required: true, schema: {type: string, format: uuid}}
+  responses:
+    BadRequest:
+      description: Invalid input, file type or file size
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Unauthorized:
+      description: Missing, invalid or expired Access Token
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Forbidden:
+      description: Missing world scope
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    NotFound:
+      description: Missing resource, wrong owner or resource outside this event
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    StorageUnavailable:
+      description: Storage disabled, unavailable or verification cannot complete
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+  schemas:
+    Event:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        createdAt: {type: integer, format: int64}
+    Participant:
+      type: object
+      required: [id, name, initials, color]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        initials: {type: string}
+        color: {type: string}
+    NullableGps:
+      type: object
+      nullable: true
+      required: [latitude, longitude]
+      properties:
+        latitude: {type: number, format: double, minimum: -90, maximum: 90}
+        longitude: {type: number, format: double, minimum: -180, maximum: 180}
+    Island:
+      type: object
+      required: [id, name, appearance, position, gpsAnchor]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        appearance: {type: integer, minimum: 0, maximum: 9}
+        position:
+          type: object
+          required: [x, y]
+          properties:
+            x: {type: number, format: double}
+            y: {type: number, format: double}
+        gpsAnchor: {$ref: '#/components/schemas/NullableGps'}
+    Photo:
+      type: object
+      required: [id, filename, caption, photographerId, islandId, gps, capturedAt, importOrder, source]
+      properties:
+        id: {type: string, format: uuid}
+        filename: {type: string}
+        caption: {type: string}
+        photographerId: {type: string, format: uuid}
+        islandId: {type: string, format: uuid, nullable: true}
+        gps: {$ref: '#/components/schemas/NullableGps'}
+        capturedAt: {type: integer, format: int64, nullable: true}
+        importOrder: {type: integer, minimum: 0}
+        source: {type: string, enum: [import]}
+    Problem:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string, format: uri-reference}
