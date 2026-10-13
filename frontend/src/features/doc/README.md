@@ -5,3 +5,5 @@ hero/ 包含照片堆叠、MemoryImage、Focus/Shared、ThenAndNow、SceneTimeli
 world/memories/replay/ImportPanel 的旧原型源码保留，当前主入口不挂载。图谱用固定坐标，不引入重型渲染引擎。样例文字不会被当成真实用户情感。
 
 discovery/ 实现 index/registry/privacy/dedupe/rank、Detectors、DiscoverPage 与 MockVisionAnalysisProvider。Unseen 复用 Hero 相纸，Timeline/Constellation 引用同一 Findings。
+
+import/eventGrouping.ts 提供时间、固定位置锚点与图片特征的候选事件归类；候选需用户确认，不把相似照片自动当作同一真实事件。
