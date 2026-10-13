@@ -60,7 +60,7 @@ class AuthIntegrationTest {
             .andExpect(status().isUnauthorized)
             .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
             .andExpect(jsonPath("$.status").value(401))
-        mvc.perform(post("/login").param("username", "demo").param("password", "test-only-password"))
+        mvc.perform(post("/login").param("username", "demo").param("passwordDigest", PasswordDigests.sha256("test-only-password")))
             .andExpect(status().isForbidden)
     }
 
@@ -74,8 +74,41 @@ class AuthIntegrationTest {
         }
     }
 
+    @Test fun `registration normalizes email rejects duplicates and accepts only digest login`() {
+        val name = "registered_user"
+        val digest = PasswordDigests.sha256("registration-test-password")
+        fun register(username: String, email: String, passwordDigest: String = digest) = post("/api/v1/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(mapOf("username" to username, "email" to email, "passwordDigest" to passwordDigest)))
+        mvc.perform(register(name, " Person@Example.COM "))
+            .andExpect(status().isCreated).andExpect(jsonPath("$.username").value(name))
+            .andExpect(jsonPath("$.email").value("person@example.com"))
+            .andExpect(jsonPath("$.passwordDigest").doesNotExist())
+        mvc.perform(register(name, "other@example.com")).andExpect(status().isConflict)
+        mvc.perform(register("another_user", "PERSON@example.com")).andExpect(status().isConflict)
+        mvc.perform(register("raw_user", "raw@example.com", "raw-password")).andExpect(status().isBadRequest)
+        mvc.perform(register("upper_user", "upper@example.com", digest.uppercase())).andExpect(status().isBadRequest)
+        mvc.perform(register("invalid_email", "not-an-email")).andExpect(status().isBadRequest)
+        val user = users.loadUserByUsername(name)
+        assertEquals(PasswordDigests.SCHEME, user.credentialScheme)
+        assertEquals("person@example.com", users.me(user.id).email)
+        mvc.perform(post("/login").with(csrf()).param("username", name).param("password", "registration-test-password"))
+            .andExpect(redirectedUrl("/login?error"))
+        mvc.perform(post("/login").with(csrf()).param("username", name).param("passwordDigest", digest))
+            .andExpect(status().is3xxRedirection).andExpect(header().string("Location", "/"))
+    }
+
+    @Test fun `login page hashes password without submitting a raw password field`() {
+        val html = mvc.perform(get("/login")).andExpect(status().isOk)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML)).andReturn().response.contentAsString
+        kotlin.test.assertTrue(html.contains("crypto.subtle.digest('SHA-256'"))
+        kotlin.test.assertTrue(html.contains("name=\"passwordDigest\""))
+        assertFalse(html.contains("name=\"password\""))
+        kotlin.test.assertTrue(html.contains("name=\"_csrf\""))
+    }
+
     private fun login(): MockHttpSession = mvc.perform(post("/login").with(csrf())
-        .param("username", "demo").param("password", "test-only-password"))
+        .param("username", "demo").param("passwordDigest", PasswordDigests.sha256("test-only-password")))
         .andExpect(status().is3xxRedirection).andReturn().request.getSession(false) as MockHttpSession
 
     private fun authorizationCode(verifier: String, scope: String): String {
@@ -133,7 +166,7 @@ class AuthIntegrationTest {
     }
 
     @Test fun `wrong password cannot authenticate and invalid redirect never leaves server`() {
-        val failed = mvc.perform(post("/login").with(csrf()).param("username", "demo").param("password", "wrong-password"))
+        val failed = mvc.perform(post("/login").with(csrf()).param("username", "demo").param("passwordDigest", PasswordDigests.sha256("wrong-password")))
             .andExpect(redirectedUrl("/login?error")).andReturn().request.getSession(false) as MockHttpSession
         mvc.perform(get("/api/v1/me").session(failed)).andExpect(status().isUnauthorized)
         mvc.perform(get("/oauth2/authorize").queryParam("response_type", "code").queryParam("client_id", "world-web")

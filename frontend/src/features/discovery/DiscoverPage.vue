@@ -12,6 +12,8 @@ const props = defineProps<{
   findings: DiscoveryFinding[]
   selected?: DiscoveryFinding
   viewerId: string
+  accountId?: string
+  readOnly?: boolean
   eventId: string
   feedback: Record<string, DiscoveryFeedback>
   hidden: boolean
@@ -155,7 +157,7 @@ function shares(f: DiscoveryFinding) {
     </div>
     <div class="discovery-filters">
       <label
-        >我的演示身份<select
+        >当前身份<select disabled
           :value="viewerId"
           @change="emit('viewer', ($event.target as HTMLSelectElement).value)"
         >
@@ -299,10 +301,10 @@ function shares(f: DiscoveryFinding) {
         <p class="muted">
           当前作者：{{
             data.participants.find((p) => p.id === viewerId)?.displayName
-          }}。演示身份可在发现页切换；真实权限需要后端鉴权。
+          }}。保存和编辑权限按登录账号校验。
         </p>
         <div>
-          <button class="primary" :disabled="!text.trim()">
+          <button class="primary" :disabled="!text.trim() || readOnly">
             {{ editId ? '保存我的修改' : '留下我的原文' }}</button
           ><button type="button" class="text-link" @click="resetComposer">撤销输入</button>
         </div>
@@ -313,7 +315,7 @@ function shares(f: DiscoveryFinding) {
           <footer>
             {{ name(c) }} · 用户原文 · {{ c.mood.join('、') }} ·
             {{ c.visibility === 'private' ? '私密' : '参与者可见'
-            }}<template v-if="c.participantId === viewerId"
+            }}<template v-if="c.ownerUserId === accountId && !readOnly"
               ><button @click="edit(c)">编辑我的文字</button
               ><button @click="emit('remove', c.id)">删除我的文字</button></template
             >
@@ -363,7 +365,7 @@ function shares(f: DiscoveryFinding) {
       ><template v-if="supplementOpen"
         ><label
           >你的原文（1–500 字）<textarea v-model="text" maxlength="500" rows="3" required /></label
-        ><button class="primary" :disabled="!text.trim()">保存我的补充</button></template
+        ><button class="primary" :disabled="!text.trim() || readOnly">保存我的补充</button></template
       >
     </form>
     <div class="finding-evidence">

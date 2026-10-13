@@ -37,6 +37,7 @@ export interface MemoryParticipant {
   id: string
   displayName: string
   color: string
+  userId?: string
 }
 export interface MemoryEvent {
   startAt?: string
@@ -69,6 +70,12 @@ export interface Moment {
   contributionIds: string[]
 }
 export interface Contribution {
+  ownerUserId?: string
+  version?: number
+  photoId?: string
+  thumbnailPhotoId?: string
+  backgroundPhotoId?: string
+  provenance?: string
   visibility?: 'private' | 'event-members' | 'public'
   participantTags?: string[]
   tagsConsent?: boolean

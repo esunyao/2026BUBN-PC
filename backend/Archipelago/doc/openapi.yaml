@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
   title: Shared Moment World API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Single-node MVP. Event owners manage photographer labels and image metadata.
     Image bytes travel directly between the browser and RustFS.
     Timestamps are UTC Unix milliseconds. OIDC uses authorization code with PKCE S256.
-    This contract does not mean the unchanged frontend already integrates these APIs.
+    The frontend uses this API for authenticated online memories.
 servers:
   - url: http://localhost:8080
     description: Local development; deployment issuer and endpoint are configurable
@@ -265,6 +265,101 @@ paths:
           content:
             application/json:
               schema: {type: object, additionalProperties: true}
+  /api/v1/auth/register:
+    post:
+      operationId: registerAccount
+      security: []
+      summary: Register an account; email is not verified
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, passwordDigest]
+              properties:
+                username: {type: string, pattern: '^[A-Za-z0-9_-]{3,32}$'}
+                email: {type: string, format: email}
+                passwordDigest: {type: string, pattern: '^[a-f0-9]{64}$', description: SHA-256 of the original UTF-8 password}
+      responses:
+        '201': {description: Account created; continue with OIDC authorization}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {description: Username or email exists}
+  /api/v1/events/{eventId}/members:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    get:
+      operationId: listMembers
+      responses:
+        '200': {description: Event members, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Member'}}}}}
+    post:
+      operationId: addMember
+      description: Creator adds an existing account by username
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [username], properties: {username: {type: string}}}}}}
+      responses:
+        '201': {description: Member added, content: {application/json: {schema: {$ref: '#/components/schemas/Member'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/events/{eventId}/memory-index:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    get:
+      operationId: memoryIndex
+      description: Returns the visible MemoryData graph, server-assigned viewer identity, permissions and revision
+      responses:
+        '200': {description: Authorized memory graph, content: {application/json: {schema: {$ref: '#/components/schemas/MemoryIndex'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/events/{eventId}/contributions:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    post:
+      operationId: createContribution
+      description: Client-generated id enables retry; gap can create a shared moment
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ContributionInput'}}}}
+      responses:
+        '201': {description: Contribution saved, content: {application/json: {schema: {$ref: '#/components/schemas/Contribution'}}}}
+        '409': {description: Duplicate id with different content}
+  /api/v1/contributions/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+    patch:
+      operationId: updateContribution
+      description: Only the actual author may update; version is required
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ContributionPatch'}}}}
+      responses:
+        '200': {description: Updated contribution, content: {application/json: {schema: {$ref: '#/components/schemas/Contribution'}}}}
+        '409': {description: Version conflict}
+    delete:
+      operationId: deleteContribution
+      parameters: [{name: version, in: query, required: true, schema: {type: integer}}]
+      responses:
+        '204': {description: Deleted}
+        '409': {description: Version conflict}
+  /api/v1/events/{eventId}/discovery-feedback:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    get:
+      operationId: getDiscoveryFeedback
+      responses:
+        '200': {description: Per-account feedback, content: {application/json: {schema: {type: object, additionalProperties: {type: object}}}}}
+    put:
+      operationId: putDiscoveryFeedback
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [findingId, evidenceIds, favorite], properties: {findingId: {type: string}, evidenceIds: {type: array, items: {type: string}}, status: {type: string, nullable: true, enum: [confirmed, dismissed]}, favorite: {type: boolean}}}}}}
+      responses:
+        '200': {description: Feedback saved}
+  /api/v1/events/{eventId}/archive:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    get:
+      operationId: exportMemoryArchive
+      description: Metadata only; no image bytes or signed URLs
+      responses:
+        '200': {description: Authorized MemoryData, content: {application/json: {schema: {$ref: '#/components/schemas/MemoryData'}}}}
+  /api/v1/events/import:
+    post:
+      operationId: importMemoryArchive
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [requestId, data], properties: {requestId: {type: string}, data: {$ref: '#/components/schemas/MemoryData'}}}}}}
+      responses:
+        '200': {description: Imported event IDs, content: {application/json: {schema: {type: object, properties: {eventIds: {type: array, items: {type: string}}}}}}}
+  /api/v1/events/from-demo:
+    post:
+      operationId: copyReadOnlyDemo
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [requestId, demoEventId], properties: {requestId: {type: string}, demoEventId: {type: string}}}}}}
+      responses:
+        '200': {description: Personal event copy, content: {application/json: {schema: {type: object, properties: {eventId: {type: string}}}}}}
 components:
   securitySchemes:
     oauth2:
@@ -308,6 +403,65 @@ components:
         application/problem+json:
           schema: {$ref: '#/components/schemas/Problem'}
   schemas:
+    Member:
+      type: object
+      required: [userId, username, participantId, role]
+      properties:
+        userId: {type: string}
+        username: {type: string}
+        participantId: {type: string}
+        role: {type: string, enum: [owner, member]}
+    MemoryIndex:
+      type: object
+      required: [data, viewerParticipantId, permissions, revision]
+      properties:
+        data: {$ref: '#/components/schemas/MemoryData'}
+        viewerParticipantId: {type: string}
+        permissions: {type: object, properties: {canManageMembers: {type: boolean}, isReadOnly: {type: boolean}}}
+        revision: {type: integer}
+    MemoryData:
+      type: object
+      required: [participants, events, scenes, moments, contributions, links, pairs]
+      properties:
+        participants: {type: array, items: {type: object}}
+        events: {type: array, items: {type: object}}
+        scenes: {type: array, items: {type: object}}
+        moments: {type: array, items: {type: object}}
+        contributions: {type: array, items: {$ref: '#/components/schemas/Contribution'}}
+        links: {type: array, items: {type: object}}
+        pairs: {type: array, items: {type: object}}
+    Contribution:
+      type: object
+      required: [id, momentId, participantId, kind, visibility, ownerUserId, version]
+      properties:
+        id: {type: string}
+        momentId: {type: string}
+        participantId: {type: string}
+        kind: {type: string, enum: [photo, note]}
+        visibility: {type: string, enum: [private, event-members, public]}
+        ownerUserId: {type: string, nullable: true}
+        version: {type: integer}
+        writtenText: {type: string, nullable: true}
+        photoId: {type: string, nullable: true}
+        thumbnailPhotoId: {type: string, nullable: true}
+        backgroundPhotoId: {type: string, nullable: true}
+    ContributionInput:
+      allOf:
+        - {$ref: '#/components/schemas/Contribution'}
+        - {type: object, properties: {gap: {type: object, nullable: true}}}
+    ContributionPatch:
+      type: object
+      required: [version]
+      properties:
+        version: {type: integer}
+        momentId: {type: string}
+        participantId: {type: string}
+        writtenText: {type: string}
+        mood: {type: array, items: {type: string}}
+        visibility: {type: string, enum: [private, event-members, public]}
+        photoId: {type: string}
+        thumbnailPhotoId: {type: string}
+        backgroundPhotoId: {type: string}
     Event:
       type: object
       required: [id, name, createdAt]

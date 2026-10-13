@@ -1,0 +1,1479 @@
+{
+  "participants": [
+    {
+      "id": "a",
+      "displayName": "林晚",
+      "color": "#a47859"
+    },
+    {
+      "id": "b",
+      "displayName": "陈屿",
+      "color": "#6a7f76"
+    },
+    {
+      "id": "c",
+      "displayName": "小满",
+      "color": "#9f8792"
+    }
+  ],
+  "events": [
+    {
+      "id": "hailing",
+      "startAt": "2026-08-16T08:00:00+08:00",
+      "endAt": "2026-08-17T22:00:00+08:00",
+      "title": "海陵岛之旅",
+      "subtitle": "三个人，一段留在夏天的时光。",
+      "type": "trip",
+      "sceneIds": [
+        "coast",
+        "mountain",
+        "city"
+      ],
+      "participantIds": [
+        "a",
+        "b",
+        "c"
+      ],
+      "isDemo": true
+    },
+    {
+      "id": "gala",
+      "startAt": "2026-10-01T08:00:00+08:00",
+      "endAt": "2027-01-01T22:00:00+08:00",
+      "title": "元旦晚会",
+      "subtitle": "从第一张节目单，到最后一次谢幕。",
+      "type": "longActivity",
+      "sceneIds": [
+        "stage"
+      ],
+      "participantIds": [
+        "a",
+        "b",
+        "c"
+      ],
+      "isDemo": true
+    }
+  ],
+  "scenes": [
+    {
+      "id": "coast",
+      "eventId": "hailing",
+      "title": "海边漫步",
+      "subtitle": "潮汐来过，光也来过。",
+      "momentIds": [
+        "coast-morning",
+        "coast-afternoon",
+        "coast-sunset",
+        "coast-evening"
+      ],
+      "environment": {
+        "preset": "coastal"
+      }
+    },
+    {
+      "id": "mountain",
+      "eventId": "hailing",
+      "title": "山野来信",
+      "subtitle": "在风经过的山脊，停留片刻。",
+      "momentIds": [
+        "mountain-walk"
+      ],
+      "environment": {
+        "preset": "alpine"
+      }
+    },
+    {
+      "id": "city",
+      "eventId": "hailing",
+      "title": "城市重逢",
+      "subtitle": "灯亮起来的时候，旅途还没有结束。",
+      "momentIds": [
+        "city-night"
+      ],
+      "environment": {
+        "preset": "urban"
+      }
+    },
+    {
+      "id": "stage",
+      "eventId": "gala",
+      "title": "灯亮之前，灯亮之后",
+      "subtitle": "把三个月的准备，留在这一晚。",
+      "momentIds": [
+        "stage-plan",
+        "stage-rehearsal",
+        "stage-ready",
+        "stage-show",
+        "stage-curtain"
+      ],
+      "environment": {
+        "preset": "ceremony"
+      }
+    }
+  ],
+  "moments": [
+    {
+      "id": "coast-morning",
+      "sceneId": "coast",
+      "title": "海风初见",
+      "startAt": "2026-08-16T09:20:00+08:00",
+      "label": "09:20",
+      "lighting": "morning",
+      "contributionIds": [
+        "coast-morning-0",
+        "coast-morning-1",
+        "coast-morning-2"
+      ]
+    },
+    {
+      "id": "coast-afternoon",
+      "sceneId": "coast",
+      "title": "午后的潮汐",
+      "startAt": "2026-08-16T14:30:00+08:00",
+      "label": "14:30",
+      "lighting": "overcast",
+      "contributionIds": [
+        "coast-afternoon-0",
+        "coast-afternoon-1",
+        "coast-afternoon-2"
+      ]
+    },
+    {
+      "id": "coast-sunset",
+      "sceneId": "coast",
+      "title": "日落时，另一双眼睛",
+      "startAt": "2026-08-16T18:40:00+08:00",
+      "label": "18:40",
+      "lighting": "golden-hour",
+      "contributionIds": [
+        "coast-sunset-0",
+        "coast-sunset-1",
+        "coast-sunset-2",
+        "coast-sunset-3"
+      ]
+    },
+    {
+      "id": "coast-evening",
+      "sceneId": "coast",
+      "title": "夜色到来",
+      "startAt": "2026-08-16T20:05:00+08:00",
+      "label": "20:05",
+      "lighting": "night",
+      "contributionIds": [
+        "coast-evening-0",
+        "coast-evening-1",
+        "coast-evening-2"
+      ]
+    },
+    {
+      "id": "mountain-walk",
+      "sceneId": "mountain",
+      "title": "经过山脊",
+      "startAt": "2026-08-17T10:00:00+08:00",
+      "label": "次日 · 10:00",
+      "lighting": "overcast",
+      "contributionIds": [
+        "mountain-walk-0",
+        "mountain-walk-1",
+        "mountain-walk-2"
+      ]
+    },
+    {
+      "id": "city-night",
+      "sceneId": "city",
+      "title": "灯影入水",
+      "startAt": "2026-08-17T20:00:00+08:00",
+      "label": "次日 · 20:00",
+      "lighting": "night",
+      "contributionIds": [
+        "city-night-0",
+        "city-night-1",
+        "city-night-2"
+      ]
+    },
+    {
+      "id": "stage-plan",
+      "sceneId": "stage",
+      "title": "十月 · 第一场筹备",
+      "startAt": "2026-10-10T14:00:00+08:00",
+      "label": "10月 · 筹备",
+      "lighting": "morning",
+      "contributionIds": [
+        "stage-plan-0",
+        "stage-plan-1",
+        "stage-plan-2"
+      ]
+    },
+    {
+      "id": "stage-rehearsal",
+      "sceneId": "stage",
+      "title": "十二月 · 彩排",
+      "startAt": "2026-12-20T16:00:00+08:00",
+      "label": "12月 · 彩排",
+      "lighting": "overcast",
+      "contributionIds": [
+        "stage-rehearsal-0",
+        "stage-rehearsal-1",
+        "stage-rehearsal-2"
+      ]
+    },
+    {
+      "id": "stage-ready",
+      "sceneId": "stage",
+      "title": "演出前 · 准备就绪",
+      "startAt": "2027-01-01T17:45:00+08:00",
+      "label": "1月1日 · 17:45",
+      "lighting": "stage-warm",
+      "contributionIds": [
+        "stage-ready-0",
+        "stage-ready-1",
+        "stage-ready-2"
+      ]
+    },
+    {
+      "id": "stage-show",
+      "sceneId": "stage",
+      "title": "一月 · 演出开始",
+      "startAt": "2027-01-01T19:30:00+08:00",
+      "label": "1月1日 · 19:30",
+      "lighting": "stage-warm",
+      "contributionIds": [
+        "stage-show-0",
+        "stage-show-1",
+        "stage-show-2"
+      ]
+    },
+    {
+      "id": "stage-curtain",
+      "sceneId": "stage",
+      "title": "最后一束灯",
+      "startAt": "2027-01-01T21:00:00+08:00",
+      "label": "1月1日 · 21:00",
+      "lighting": "night",
+      "contributionIds": [
+        "stage-curtain-0",
+        "stage-curtain-1",
+        "stage-curtain-2"
+      ]
+    }
+  ],
+  "contributions": [
+    {
+      "id": "coast-morning-0",
+      "momentId": "coast-morning",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/27302088.jpg",
+      "thumbnailUrl": "/demo-assets/27302088-thumb.jpg",
+      "alt": "沙丘与清晨的海岸",
+      "writtenText": "沿着沙丘走到了海边。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T09:20:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-morning-1",
+      "momentId": "coast-morning",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/20109401.jpg",
+      "thumbnailUrl": "/demo-assets/20109401-thumb.jpg",
+      "alt": "浪花环绕的海岸",
+      "writtenText": "从高处看见海岸的曲线。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T09:20:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-morning-2",
+      "momentId": "coast-morning",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/16120955.jpg",
+      "thumbnailUrl": "/demo-assets/16120955-thumb.jpg",
+      "alt": "海浪拍打岸边的岩石",
+      "writtenText": "停下来拍了一张浪花。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T09:20:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-afternoon-0",
+      "momentId": "coast-afternoon",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/18777464.jpg",
+      "thumbnailUrl": "/demo-assets/18777464-thumb.jpg",
+      "alt": "绿色沙丘和沙滩",
+      "writtenText": "午后的沙丘，路一直延伸到海边。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T14:30:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-afternoon-1",
+      "momentId": "coast-afternoon",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/16414497.jpg",
+      "thumbnailUrl": "/demo-assets/16414497-thumb.jpg",
+      "alt": "海浪与沙滩的纹理",
+      "writtenText": "把沙滩上的纹理留了下来。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T14:30:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-afternoon-2",
+      "momentId": "coast-afternoon",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/9657794.jpg",
+      "thumbnailUrl": "/demo-assets/9657794-thumb.jpg",
+      "alt": "海岸水面的抽象纹理",
+      "writtenText": "这一张拍的是水与沙的交界。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T14:30:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-sunset-0",
+      "momentId": "coast-sunset",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/35754189.jpg",
+      "thumbnailUrl": "/demo-assets/35754189-thumb.jpg",
+      "alt": "落日映照在海面上",
+      "writtenText": "太阳落下时，海面变成了金色。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T18:40:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-sunset-1",
+      "momentId": "coast-sunset",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/5579143.jpg",
+      "thumbnailUrl": "/demo-assets/5579143-thumb.jpg",
+      "alt": "站在海边的朋友背影",
+      "writtenText": "我把镜头转向了站在岸边的人。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T18:40:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-sunset-2",
+      "momentId": "coast-sunset",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/26584348.jpg",
+      "thumbnailUrl": "/demo-assets/26584348-thumb.jpg",
+      "alt": "坐在沙滩上看日落的人们",
+      "writtenText": "大家在海边坐了一会儿。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T18:40:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-sunset-3",
+      "momentId": "coast-sunset",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/33356268.jpg",
+      "thumbnailUrl": "/demo-assets/33356268-thumb.jpg",
+      "alt": "海浪冲过湿润的沙滩",
+      "writtenText": "最后留下一张潮水。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T18:40:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "mountain-walk-0",
+      "momentId": "mountain-walk",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/30748642.jpg",
+      "thumbnailUrl": "/demo-assets/30748642-thumb.jpg",
+      "alt": "阳光下的山野",
+      "writtenText": "走到山脊，拍下远处的山。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-17T10:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "mountain"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "mountain-walk-1",
+      "momentId": "mountain-walk",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/33515294.jpg",
+      "thumbnailUrl": "/demo-assets/33515294-thumb.jpg",
+      "alt": "雾中的山峰",
+      "writtenText": "另一侧，山峰藏在雾里。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-17T10:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "mountain"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "mountain-walk-2",
+      "momentId": "mountain-walk",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/18777464.jpg",
+      "thumbnailUrl": "/demo-assets/18777464-thumb.jpg",
+      "alt": "延伸在绿地中的小路",
+      "writtenText": "这张作为自然章节的素材样例。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-17T10:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "mountain"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "city-night-0",
+      "momentId": "city-night",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/4912393.jpg",
+      "thumbnailUrl": "/demo-assets/4912393-thumb.jpg",
+      "alt": "城市灯光映在水面",
+      "writtenText": "夜晚的灯映在水里。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-17T20:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "city"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "city-night-1",
+      "momentId": "city-night",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/4912393.jpg",
+      "thumbnailUrl": "/demo-assets/4912393-thumb.jpg",
+      "alt": "沿水岸的夜色",
+      "writtenText": "沿水岸走了一段路。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-17T20:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "city"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "city-night-2",
+      "momentId": "city-night",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/4912393.jpg",
+      "thumbnailUrl": "/demo-assets/4912393-thumb.jpg",
+      "alt": "远山与城市夜灯",
+      "writtenText": "抬头的时候还看得见远山。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-17T20:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "city"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-plan-0",
+      "momentId": "stage-plan",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/29858811.jpg",
+      "thumbnailUrl": "/demo-assets/29858811-thumb.jpg",
+      "alt": "准备搭建的空舞台",
+      "writtenText": "舞台还空着，设备刚刚搬进来。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-10-10T14:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "planning"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-plan-1",
+      "momentId": "stage-plan",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/4872022.jpg",
+      "thumbnailUrl": "/demo-assets/4872022-thumb.jpg",
+      "alt": "围桌讨论的筹备团队",
+      "writtenText": "第一次围在桌前讨论节目。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-10-10T14:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "planning"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-plan-2",
+      "momentId": "stage-plan",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/6476184.jpg",
+      "thumbnailUrl": "/demo-assets/6476184-thumb.jpg",
+      "alt": "团队在会议桌旁记录计划",
+      "writtenText": "把讨论记在了纸上。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-10-10T14:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "planning"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-rehearsal-0",
+      "momentId": "stage-rehearsal",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/6896333.jpg",
+      "thumbnailUrl": "/demo-assets/6896333-thumb.jpg",
+      "alt": "演员在舞台上排练",
+      "writtenText": "彩排时，重新走了一遍站位。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-12-20T16:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "rehearsal"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-rehearsal-1",
+      "momentId": "stage-rehearsal",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/32388451.jpg",
+      "thumbnailUrl": "/demo-assets/32388451-thumb.jpg",
+      "alt": "服装与后台准备",
+      "writtenText": "后台的服装已经准备好了。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-12-20T16:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "rehearsal"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-rehearsal-2",
+      "momentId": "stage-rehearsal",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/29858811.jpg",
+      "thumbnailUrl": "/demo-assets/29858811-thumb.jpg",
+      "alt": "搭建阶段的舞台设备",
+      "writtenText": "设备调试还在继续。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-12-20T16:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "rehearsal"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-show-0",
+      "momentId": "stage-show",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/167587.jpg",
+      "thumbnailUrl": "/demo-assets/167587-thumb.jpg",
+      "alt": "演出舞台与观众",
+      "writtenText": "灯光亮起来，演出开始。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T19:30:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "performance"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-show-1",
+      "momentId": "stage-show",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/6899928.jpg",
+      "thumbnailUrl": "/demo-assets/6899928-thumb.jpg",
+      "alt": "从后台看到的舞台演员",
+      "writtenText": "从侧幕后留下了这个视角。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T19:30:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "backstage"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-show-2",
+      "momentId": "stage-show",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/11794650.jpg",
+      "thumbnailUrl": "/demo-assets/11794650-thumb.jpg",
+      "alt": "舞台上的乐队",
+      "writtenText": "在台下记录了乐队的演出。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T19:30:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "performance"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-curtain-0",
+      "momentId": "stage-curtain",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/6899928.jpg",
+      "thumbnailUrl": "/demo-assets/6899928-thumb.jpg",
+      "alt": "演员与舞台灯光",
+      "writtenText": "最后一次走回舞台。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T21:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-curtain-1",
+      "momentId": "stage-curtain",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/32388451.jpg",
+      "thumbnailUrl": "/demo-assets/32388451-thumb.jpg",
+      "alt": "演出后台与服装",
+      "writtenText": "结束后回到了后台。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T21:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-curtain-2",
+      "momentId": "stage-curtain",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/11794650.jpg",
+      "thumbnailUrl": "/demo-assets/11794650-thumb.jpg",
+      "alt": "乐队演出现场",
+      "writtenText": "把最后一段表演留了下来。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T21:00:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-evening-0",
+      "momentId": "coast-evening",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/33356268.jpg",
+      "thumbnailUrl": "/demo-assets/33356268-thumb.jpg",
+      "alt": "晚间章节的海浪素材",
+      "writtenText": "夜色章节的演示记录。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T20:05:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-evening-1",
+      "momentId": "coast-evening",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/16414497.jpg",
+      "thumbnailUrl": "/demo-assets/16414497-thumb.jpg",
+      "alt": "岸边潮水的素材照片",
+      "writtenText": "在岸边留下另一张记录。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T20:05:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "coast-evening-2",
+      "momentId": "coast-evening",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/26584348.jpg",
+      "thumbnailUrl": "/demo-assets/26584348-thumb.jpg",
+      "alt": "海边的人们",
+      "writtenText": "这一段使用海岸摄影作为演示素材。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2026-08-16T20:05:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "coast"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-ready-0",
+      "momentId": "stage-ready",
+      "participantId": "a",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/32388451.jpg",
+      "thumbnailUrl": "/demo-assets/32388451-thumb.jpg",
+      "alt": "后台的演出服装",
+      "writtenText": "开演前记录了后台的准备。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T17:45:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "backstage"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-ready-1",
+      "momentId": "stage-ready",
+      "participantId": "b",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/6899928.jpg",
+      "thumbnailUrl": "/demo-assets/6899928-thumb.jpg",
+      "alt": "从侧幕看舞台",
+      "writtenText": "从侧幕拍下舞台。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T17:45:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "backstage"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    },
+    {
+      "id": "stage-ready-2",
+      "momentId": "stage-ready",
+      "participantId": "c",
+      "kind": "photo",
+      "mediaUrl": "/demo-assets/29858811.jpg",
+      "thumbnailUrl": "/demo-assets/29858811-thumb.jpg",
+      "alt": "舞台设备的示例素材",
+      "writtenText": "设备准备阶段的素材样例。",
+      "mood": [
+        "平静"
+      ],
+      "isDemo": true,
+      "visibility": "event-members",
+      "timeEvidence": {
+        "start": "2027-01-01T17:45:00+08:00",
+        "precision": "approximate",
+        "source": "demo"
+      },
+      "analysis": {
+        "sceneTags": [
+          "stage"
+        ],
+        "objects": [],
+        "activities": [],
+        "phaseTags": [
+          "backstage"
+        ],
+        "modelId": "manual-demo-annotations",
+        "version": "1"
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "link-coast-morning",
+      "momentIds": [
+        "coast-morning"
+      ],
+      "contributionIds": [
+        "coast-morning-0",
+        "coast-morning-1",
+        "coast-morning-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一场景时间窗口 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-coast-afternoon",
+      "momentIds": [
+        "coast-afternoon"
+      ],
+      "contributionIds": [
+        "coast-afternoon-0",
+        "coast-afternoon-1",
+        "coast-afternoon-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一场景时间窗口 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-coast-sunset",
+      "momentIds": [
+        "coast-sunset"
+      ],
+      "contributionIds": [
+        "coast-sunset-0",
+        "coast-sunset-1",
+        "coast-sunset-2",
+        "coast-sunset-3"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一场景时间窗口 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-mountain-walk",
+      "momentIds": [
+        "mountain-walk"
+      ],
+      "contributionIds": [
+        "mountain-walk-0",
+        "mountain-walk-1",
+        "mountain-walk-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一场景时间窗口 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-city-night",
+      "momentIds": [
+        "city-night"
+      ],
+      "contributionIds": [
+        "city-night-0",
+        "city-night-1",
+        "city-night-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一场景时间窗口 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-stage-plan",
+      "momentIds": [
+        "stage-plan"
+      ],
+      "contributionIds": [
+        "stage-plan-0",
+        "stage-plan-1",
+        "stage-plan-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一活动阶段 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-stage-rehearsal",
+      "momentIds": [
+        "stage-rehearsal"
+      ],
+      "contributionIds": [
+        "stage-rehearsal-0",
+        "stage-rehearsal-1",
+        "stage-rehearsal-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一活动阶段 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-stage-show",
+      "momentIds": [
+        "stage-show"
+      ],
+      "contributionIds": [
+        "stage-show-0",
+        "stage-show-1",
+        "stage-show-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一活动阶段 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-stage-curtain",
+      "momentIds": [
+        "stage-curtain"
+      ],
+      "contributionIds": [
+        "stage-curtain-0",
+        "stage-curtain-1",
+        "stage-curtain-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一活动阶段 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-coast-evening",
+      "momentIds": [
+        "coast-evening"
+      ],
+      "contributionIds": [
+        "coast-evening-0",
+        "coast-evening-1",
+        "coast-evening-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一场景时间窗口 · 手工演示关联",
+      "confidence": 0.9
+    },
+    {
+      "id": "link-stage-ready",
+      "momentIds": [
+        "stage-ready"
+      ],
+      "contributionIds": [
+        "stage-ready-0",
+        "stage-ready-1",
+        "stage-ready-2"
+      ],
+      "relation": "sameMoment",
+      "reason": "同一活动阶段 · 手工演示关联",
+      "confidence": 0.9
+    }
+  ],
+  "pairs": [
+    {
+      "id": "coast-pair",
+      "sceneId": "coast",
+      "beforeContributionId": "coast-morning-0",
+      "afterContributionId": "coast-sunset-0",
+      "comparisonMode": "sideBySide"
+    },
+    {
+      "id": "stage-pair",
+      "sceneId": "stage",
+      "beforeContributionId": "stage-plan-0",
+      "afterContributionId": "stage-show-0",
+      "comparisonMode": "sideBySide"
+    }
+  ]
+}

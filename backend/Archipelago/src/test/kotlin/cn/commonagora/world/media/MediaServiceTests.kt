@@ -1,6 +1,7 @@
 package cn.commonagora.world.media
 
 import cn.commonagora.world.config.StorageProperties
+import cn.commonagora.world.memory.MemoryAccess
 import cn.commonagora.world.shared.*
 import io.mockk.*
 import org.junit.jupiter.api.BeforeEach
@@ -24,6 +25,7 @@ import kotlin.test.*
 class MediaServiceTests {
     @TempDir lateinit var directory: Path
     private lateinit var jdbc: JdbcTemplate
+    private lateinit var memories: MemoryAccess
     private lateinit var events: EventAccess
     private lateinit var storage: StorageGateway
     private lateinit var service: MediaService
@@ -38,10 +40,14 @@ class MediaServiceTests {
         jdbc = JdbcTemplate(datasource)
         val migration = javaClass.getResource("/db/migration/V1__create_world.sql")!!.readText()
         migration.split(';').filter { it.isNotBlank() }.forEach { jdbc.execute(it) }
+        jdbc.execute("ALTER TABLE photos ADD COLUMN uploader_id TEXT")
         jdbc.update("INSERT INTO users VALUES ('owner','name','hash',0)")
         jdbc.update("INSERT INTO events VALUES ('event','owner','Trip',0)")
         jdbc.update("INSERT INTO events VALUES ('other-event','owner','Other Trip',0)")
         jdbc.update("INSERT INTO participants VALUES ('participant','event','P','P','#123456')")
+        memories = mockk()
+        every { memories.requireMember(any(), "owner") } just Runs
+        every { memories.canReadPhoto(any(), any(), "owner") } returns true
         events = mockk()
         every { events.assertOwner("event", "owner") } returns EventSummary("event", "Trip", 0)
         every { events.assertOwner("other-event", "owner") } returns EventSummary("other-event", "Other Trip", 0)
@@ -65,7 +71,7 @@ class MediaServiceTests {
             "\"etag\""
         }
         every { storage.signDownload(any(), any()) } returns "https://public.example/download"
-        service = MediaService(jdbc, TransactionTemplate(DataSourceTransactionManager(datasource)), events, storage, properties)
+        service = MediaService(jdbc, TransactionTemplate(DataSourceTransactionManager(datasource)), events, storage, properties, memories)
         service.clock = Clock.fixed(Instant.ofEpochMilli(now), ZoneOffset.UTC)
     }
 
@@ -78,6 +84,7 @@ class MediaServiceTests {
         assertEquals(listOf(0, 1), jdbc.queryForList("SELECT import_order FROM photos ORDER BY import_order", Int::class.java))
         val row = jdbc.queryForMap("SELECT * FROM photos WHERE id=?", first.photoId)
         assertEquals("PENDING", row["status"])
+        assertEquals("owner", row["uploader_id"])
         assertTrue(row["staging_key"].toString().startsWith("owners/owner/events/event/staging/"))
         assertTrue(row["object_key"].toString().startsWith("owners/owner/events/event/photos/"))
         assertNotEquals(row["staging_key"], row["object_key"])
@@ -95,8 +102,8 @@ class MediaServiceTests {
     }
 
     @Test
-    fun `non owner or wrong participant gets no signed URL`() {
-        every { events.assertOwner("event", "intruder") } throws ApiException(HttpStatus.NOT_FOUND, "Event not found")
+    fun `non member or wrong participant gets no signed URL`() {
+        every { memories.requireMember("event", "intruder") } throws ApiException(HttpStatus.NOT_FOUND, "Event not found")
         every { events.assertParticipant("event", "foreign-person") } throws ApiException(HttpStatus.NOT_FOUND, "Participant not found")
         assertStatus(HttpStatus.NOT_FOUND) { service.presign("event", "intruder", request) }
         assertStatus(HttpStatus.NOT_FOUND) { service.presign("event", "owner", request.copy(photographerId = "foreign-person")) }
@@ -164,6 +171,7 @@ class MediaServiceTests {
         service.confirm("event", "owner", ready)
         val pending = service.presign("event", "owner", request).photoId
         assertStatus(HttpStatus.NOT_FOUND) { service.download("event", "owner", DownloadRequest(listOf(ready, pending))) }
+        every { memories.canReadPhoto("other-event", ready, "owner") } returns false
         assertStatus(HttpStatus.NOT_FOUND) { service.download("other-event", "owner", DownloadRequest(listOf(ready))) }
         assertStatus(HttpStatus.BAD_REQUEST) { service.download("event", "owner", DownloadRequest(emptyList())) }
         verify(exactly = 0) { storage.signDownload(any(), any()) }
@@ -195,6 +203,38 @@ class MediaServiceTests {
             release.countDown()
             pool.shutdownNow()
         }
+    }
+
+    @Test
+    fun `member may upload using another participant label but only uploader confirms`() {
+        every { memories.requireMember("event", "member") } just Runs
+        every { memories.canReadPhoto("event", any(), "member") } returns true
+        val id = service.presign("event", "member", request).photoId
+        assertEquals("member", jdbc.queryForObject("SELECT uploader_id FROM photos WHERE id=?", String::class.java, id))
+        assertStatus(HttpStatus.NOT_FOUND) { service.confirm("event", "owner", id) }
+        verify(exactly = 0) { storage.head(any()) }
+        service.confirm("event", "member", id)
+        assertStatus(HttpStatus.NOT_FOUND) { service.confirm("event", "owner", id) }
+    }
+
+    @Test
+    fun `creator cannot download member private photo and entire batch is checked`() {
+        val allowed = service.presign("event", "owner", request).photoId
+        service.confirm("event", "owner", allowed)
+        val hidden = service.presign("event", "owner", request).photoId
+        service.confirm("event", "owner", hidden)
+        every { memories.canReadPhoto("event", hidden, "owner") } returns false
+        assertStatus(HttpStatus.NOT_FOUND) { service.download("event", "owner", DownloadRequest(listOf(allowed, hidden))) }
+        verify(exactly = 0) { storage.signDownload(any(), any()) }
+    }
+
+    @Test
+    fun `thumbnail sized uploads use same path and twelve MiB is accepted`() {
+        val large = request.copy(sizeBytes = 12L * 1024 * 1024)
+        val id = service.presign("event", "owner", large).photoId
+        every { storage.head(any()) } returns StoredObject(large.sizeBytes, "image/jpeg", "\"etag\"")
+        service.confirm("event", "owner", id)
+        assertEquals(large.sizeBytes, jdbc.queryForObject("SELECT verified_bytes FROM photos WHERE id=?", Long::class.java, id))
     }
 
     private fun assertStatus(status: HttpStatus, action: () -> Any?) {

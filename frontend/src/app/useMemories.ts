@@ -1,11 +1,10 @@
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import type { Contribution, MemoryData, ViewMode, EnvironmentPreset } from '../shared/memoryTypes'
-import { createMemoryDemo, presets } from './memoryDemo'
-import { readMedia, storeMedia } from '../shared/lib/memoryStorage'
+import { presets } from './memoryDemo'
 import { isVisible } from '../features/discovery/engine'
-import { importPhotos } from '../features/import/importPhotos'
-
-const STORAGE = 'shared-memories-v1'
+import { auth } from './useAuth'
+import { online, normalizeIndex, combineIndexes, type MemoryIndex } from './onlineRepository'
+import { uploadMemory } from './uploadMemory'
 export function validateArchive(value: unknown): value is MemoryData {
   if (!value || typeof value !== 'object') return false
   const d = value as MemoryData
@@ -117,54 +116,60 @@ export function validateArchive(value: unknown): value is MemoryData {
   )
 }
 export function useMemories() {
-  const data = ref<MemoryData>(createMemoryDemo())
+  const data = ref<MemoryData>({ participants: [], events: [], scenes: [], moments: [], contributions: [], links: [], pairs: [] })
   const notice = ref(''),
     loading = ref(true)
-  try {
-    const saved = localStorage.getItem(STORAGE)
-    if (saved) {
-      const parsed: unknown = JSON.parse(saved)
-      if (validateArchive(parsed)) data.value = parsed
-      else notice.value = '本地存档格式无法读取，已打开示例。'
+  const indexes = new Map<string, MemoryIndex>()
+  const urlTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const permissions = computed(() => indexes.get(state.activeEventId)?.permissions)
+  async function signedUrls(eventId: string, index: MemoryIndex) {
+    clearTimeout(urlTimers.get(eventId))
+    const contributions = index.data.contributions
+    const ids = [...new Set(contributions.flatMap((c) => [c.photoId, c.thumbnailPhotoId, c.backgroundPhotoId].filter((id): id is string => !!id)))]
+    let earliestExpiry = Number.POSITIVE_INFINITY
+    for (let i = 0; i < ids.length; i += 100) {
+      const response = await online.urls(eventId, ids.slice(i, i + 100))
+      for (const item of response.urls) earliestExpiry = Math.min(earliestExpiry, item.expiresAt)
+      const urls = new Map(response.urls.map((item) => [item.photoId, item.url]))
+      contributions.forEach((c) => {
+        if (c.photoId && urls.has(c.photoId)) c.mediaUrl = urls.get(c.photoId)
+        if (c.thumbnailPhotoId && urls.has(c.thumbnailPhotoId)) c.thumbnailUrl = urls.get(c.thumbnailPhotoId)
+      })
     }
-  } catch {
-    notice.value = '无法读取本地存档；当前仍可体验示例。'
-  }
-  const latest = createMemoryDemo()
-  for (const e of data.value.events.filter((e) => e.isDemo)) {
-    const seed = latest.events.find((v) => v.id === e.id)
-    if (!seed) continue
-    e.startAt ??= seed.startAt
-    e.endAt ??= seed.endAt
-    for (const sceneId of e.sceneIds) {
-      const existingScene = data.value.scenes.find((s) => s.id === sceneId),
-        seedScene = latest.scenes.find((s) => s.id === sceneId)
-      if (!existingScene || !seedScene) continue
-      for (const id of seedScene.momentIds)
-        if (!existingScene.momentIds.includes(id)) {
-          existingScene.momentIds.push(id)
-          const m = latest.moments.find((m) => m.id === id)!
-          data.value.moments.push(m)
-          data.value.contributions.push(...latest.contributions.filter((c) => c.momentId === id))
-          data.value.links.push(...latest.links.filter((l) => l.momentIds.includes(id)))
-        }
-      existingScene.momentIds.sort(
-        (a, b) =>
-          Date.parse(data.value.moments.find((m) => m.id === a)!.startAt) -
-          Date.parse(data.value.moments.find((m) => m.id === b)!.startAt),
-      )
+    if (Number.isFinite(earliestExpiry)) {
+      const delay = Math.max(10_000, earliestExpiry - Date.now() - 60_000)
+      urlTimers.set(eventId, setTimeout(() => {
+        if (!auth.account || !indexes.has(eventId)) return
+        void signedUrls(eventId, index).then(() => { data.value = combineIndexes([...indexes.values()]) })
+          .catch((error) => { notice.value = error instanceof Error ? error.message : '照片地址刷新失败。' })
+      }, delay))
     }
   }
-  for (const c of data.value.contributions.filter((c) => c.isDemo)) {
-    const seed = latest.contributions.find((v) => v.id === c.id)
-    if (seed) {
-      c.timeEvidence ??= seed.timeEvidence
-      c.analysis ??= seed.analysis
-      c.visibility ??= 'event-members'
-    }
+  async function loadOnline() {
+    loading.value = true
+    try {
+      const events = await online.events()
+      const loaded = await Promise.all(events.map(async (e) => {
+        const index = normalizeIndex(await online.index(e.id))
+        if (!e.isDemo) await signedUrls(e.id, index)
+        return [e.id, index] as const
+      }))
+      indexes.clear()
+      loaded.forEach(([id, index]) => indexes.set(id, index))
+      data.value = combineIndexes(loaded.map(([, index]) => index))
+      restoreURL()
+      if (state.activeEventId) state.currentViewerId = indexes.get(state.activeEventId)?.viewerParticipantId ?? 'a'
+    } catch (error) {
+      notice.value = error instanceof Error ? error.message : '无法加载线上记忆。'
+      throw error
+    } finally { loading.value = false }
   }
-  // Recipes are trusted local presets; uploaded JSON cannot inject CSS or URLs.
-  data.value.scenes.forEach((s) => (s.environment = structuredClone(presets[s.environment.preset])))
+  async function reloadEvent(id: string) {
+    const index = normalizeIndex(await online.index(id))
+    if (!index.permissions.isReadOnly) await signedUrls(id, index)
+    indexes.set(id, index)
+    data.value = combineIndexes([...indexes.values()])
+  }
   const state = reactive({
     activeEventId: '',
     activeSceneId: '',
@@ -229,20 +234,7 @@ export function useMemories() {
     lighting: moment.value?.lighting ?? 'golden-hour',
     backgroundPhotoId: visible.value.find((c) => c.mediaUrl)?.id,
   }))
-  const objectURLs = new Set<string>()
   let clock: ReturnType<typeof setInterval> | undefined
-  function persist() {
-    try {
-      const archive = structuredClone(JSON.parse(JSON.stringify(data.value)) as MemoryData)
-      archive.contributions.forEach((c) => {
-        if (c.fileId) delete c.mediaUrl
-      })
-      localStorage.setItem(STORAGE, JSON.stringify(archive))
-    } catch {
-      notice.value = '存储空间不足或浏览器禁止保存；请导出文字备份。'
-    }
-  }
-  watch(data, persist, { deep: true })
   function selectMoment(id: string) {
     const m = data.value.moments.find((item) => item.id === id)
     if (!m) return
@@ -270,6 +262,7 @@ export function useMemories() {
     state.viewMode = 'scene'
     state.page = page
     state.activeEventId = eventId
+    state.currentViewerId = indexes.get(eventId)?.viewerParticipantId ?? state.currentViewerId
     state.themeOverride = ''
     if (page === 'scene') {
       const s = data.value.scenes.find((s) => s.id === sceneId)
@@ -302,7 +295,7 @@ export function useMemories() {
       state.activeParticipantId = saved.activeParticipantId ?? 'all'
       state.activeContributionId = saved.activeContributionId ?? ''
       state.themeOverride = saved.themeOverride ?? ''
-      state.currentViewerId = saved.currentViewerId ?? 'a'
+      state.currentViewerId = indexes.get(state.activeEventId)?.viewerParticipantId ?? 'a'
       state.photoCursor = saved.photoCursor ?? 0
     }
   }
@@ -349,118 +342,69 @@ export function useMemories() {
     file?: File
   }) {
     const m = data.value.moments.find((m) => m.id === input.momentId)
-    if (!m || !data.value.participants.some((p) => p.id === input.participantId))
+    const scene = data.value.scenes.find((s) => s.id === m?.sceneId)
+    if (!m || !scene || !data.value.participants.some((p) => p.id === input.participantId))
       throw new Error('请选择有效的人物和时刻。')
+    if (indexes.get(scene.eventId)?.permissions.isReadOnly) throw new Error('请先复制示例，再留下你的记忆。')
     if (!input.text.trim() && !input.file && !input.id)
       throw new Error('请留下文字或选择一张照片。')
     const existing = data.value.contributions.find((c) => c.id === input.id)
-    if (
-      existing &&
-      data.value.moments.find((m) => m.id === existing.momentId)?.originGapId &&
-      existing.participantId !== state.currentViewerId
-    )
-      throw new Error('只能编辑自己对空白片段的贡献。')
-    const c: Contribution = existing
-      ? { ...existing }
-      : {
-          id: crypto.randomUUID(),
-          kind: 'note',
-          momentId: m.id,
-          participantId: input.participantId,
-          alt: '本地上传照片',
-          mood: [],
-          isDemo: false,
-        }
-    if (input.file) {
-      if (input.file.size > 12 * 1024 * 1024) throw new Error('请使用小于 12 MB 的照片。')
-      const result = await importPhotos([input.file], input.participantId, [], 0)
-      const photo = result.photos[0]
-      if (!photo) throw new Error(result.failures[0] ?? '无法读取图片')
-      try {
-        const fileId = crypto.randomUUID()
-        await storeMedia(fileId, input.file)
-        c.fileId = fileId
-      } catch {
-        URL.revokeObjectURL(photo.url)
-        throw new Error('照片保存失败，请检查浏览器存储空间。文字尚未提交。')
-      }
-      if (c.mediaUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(c.mediaUrl)
-        objectURLs.delete(c.mediaUrl)
-      }
-      delete c.thumbnailUrl
-      c.mediaUrl = photo.url
-      objectURLs.add(photo.url)
-      c.kind = 'photo'
-      c.alt = photo.filename
-      c.gps = photo.gps
-      c.capturedAt = photo.capturedAt
+    if (existing && existing.ownerUserId !== auth.account?.id) throw new Error('只能编辑自己的贡献。')
+    const uploaded = input.file ? await uploadMemory(scene.eventId, input.participantId, input.file) : undefined
+    const c: Contribution = {
+      ...(existing ?? {}),
+      id: existing?.id ?? crypto.randomUUID(),
+      kind: uploaded ? 'photo' : (existing?.kind ?? 'note'),
+      momentId: m.id,
+      participantId: input.participantId,
+      ownerUserId: auth.account?.id,
+      isDemo: false,
+      alt: input.file?.name ?? existing?.alt ?? '文字记忆',
+      writtenText: input.text,
+      mood: input.mood ? [input.mood] : [],
+      visibility: existing?.visibility ?? 'event-members',
+      ...(uploaded ?? {}),
     }
-    c.momentId = m.id
-    c.participantId = input.participantId
-    c.writtenText = input.text
-    c.mood = input.mood ? [input.mood] : []
-    c.isDemo = false
-    c.visibility ??= 'event-members'
+    if (input.file) {
+      c.gps = uploaded?.gps
+      c.capturedAt = uploaded?.capturedAt
+    }
     c.timeEvidence = c.capturedAt
       ? { start: new Date(c.capturedAt).toISOString(), precision: 'exact', source: 'exif' }
       : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
-    if (existing) {
-      data.value.links.forEach((link) => {
-        if (!link.momentIds.includes(c.momentId))
-          link.contributionIds = link.contributionIds.filter((id) => id !== c.id)
-      })
-      data.value.moments.forEach(
-        (m) => (m.contributionIds = m.contributionIds.filter((id) => id !== c.id)),
-      )
-      data.value.contributions[data.value.contributions.findIndex((v) => v.id === c.id)] = c
-    } else data.value.contributions.push(c)
-    m.contributionIds.push(c.id)
+    const payload = { ...c, version: existing?.version ?? 0 }
+    if (existing) await online.editContribution(c.id, payload)
+    else await online.addContribution(scene.eventId, payload)
+    await reloadEvent(scene.eventId)
     selectMoment(m.id)
     state.activeContributionId = c.id
     state.activeParticipantId = input.participantId
     state.viewMode = 'scene'
     syncURL(true)
-    notice.value = '已保存在这个浏览器中。'
+    notice.value = '已保存到共同记忆。'
   }
-  function createEvent(title: string, type: 'trip' | 'longActivity') {
-    const id = crypto.randomUUID(),
-      sceneId = crypto.randomUUID(),
-      momentId = crypto.randomUUID()
-    data.value.events.push({
-      id,
-      title: title.trim(),
-      subtitle: '从这里开始，留下共同的记忆。',
-      type,
-      isDemo: false,
-      sceneIds: [sceneId],
-      participantIds: data.value.participants.map((p) => p.id),
-    })
-    data.value.scenes.push({
-      id: sceneId,
-      eventId: id,
-      title: '第一章',
-      subtitle: '添加属于你们的第一段回忆。',
-      momentIds: [momentId],
-      environment: presets.neutral,
-    })
-    data.value.moments.push({
-      id: momentId,
-      sceneId,
-      title: '最初的时刻',
-      startAt: new Date().toISOString(),
-      label: '今日',
-      lighting: 'morning',
-      contributionIds: [],
-    })
-    navigate('scene', id, sceneId)
+  async function createEvent(title: string, type: 'trip' | 'longActivity') {
+    const created = await online.create(title, type)
+    await reloadEvent(created.id)
+    const sceneId = indexes.get(created.id)?.data.events[0]?.sceneIds[0]
+    navigate('scene', created.id, sceneId)
     open('edit')
   }
-  function exportArchive() {
-    const archive: MemoryData = JSON.parse(JSON.stringify(data.value))
-    archive.contributions.forEach((c) => {
-      if (c.fileId) delete c.mediaUrl
-    })
+  async function copyDemo(eventId: string) {
+    const copied = await online.copyDemo(eventId)
+    await reloadEvent(copied.eventId)
+    navigate('event', copied.eventId)
+    notice.value = '示例已复制为你的线上篇章。'
+  }
+  async function addMember(username: string) {
+    if (!state.activeEventId) throw new Error('请先打开一个事件。')
+    await online.addMember(state.activeEventId, username)
+    await reloadEvent(state.activeEventId)
+    notice.value = '参与者已加入事件。'
+  }
+  async function exportArchive() {
+    const archives = await Promise.all(data.value.events.filter((e) => !e.isDemo).map((e) => online.archive(e.id)))
+    const archive = combineIndexes(archives.map((item) => ({ data: item, viewerParticipantId: '', permissions: { canManageMembers: false, isReadOnly: false }, revision: 0 })))
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' }),
     )
@@ -469,48 +413,22 @@ export function useMemories() {
     a.download = 'shared-memories.json'
     a.click()
     URL.revokeObjectURL(url)
-    notice.value = '文字与配置已导出；本地照片保留在此浏览器，未包含在 JSON 中。'
+    notice.value = '线上存档已导出；JSON 不包含照片字节。'
   }
   async function importArchive(file: File) {
     if (file.size > 2 * 1024 * 1024) throw new Error('存档不能超过 2 MB。')
     const parsed: unknown = JSON.parse(await file.text())
     if (!validateArchive(parsed)) throw new Error('存档格式或关联不正确，请使用本应用导出的 JSON。')
-    parsed.scenes.forEach((s) => (s.environment = structuredClone(presets[s.environment.preset])))
-    data.value = parsed
-    await hydrate()
+    await online.import(parsed)
+    await loadOnline()
     navigate('home')
-    notice.value = '存档已导入。'
+    notice.value = '存档已导入线上篇章。'
   }
-  async function hydrate() {
-    for (const url of objectURLs) URL.revokeObjectURL(url)
-    objectURLs.clear()
-    for (const c of data.value.contributions)
-      if (c.fileId) {
-        try {
-          const blob = await readMedia(c.fileId)
-          if (blob) {
-            c.mediaUrl = URL.createObjectURL(blob)
-            objectURLs.add(c.mediaUrl)
-          } else {
-            delete c.mediaUrl
-            notice.value = '部分照片未在此浏览器找到，请在编辑中重新选择文件。'
-          }
-        } catch {
-          delete c.mediaUrl
-          notice.value = '本地照片无法读取，文字仍然保留。'
-        }
-      }
-  }
-  onMounted(async () => {
-    restoreURL()
-    window.addEventListener('popstate', restoreURL)
-    await hydrate()
-    loading.value = false
-  })
+  window.addEventListener('popstate', restoreURL)
   onBeforeUnmount(() => {
     clearInterval(clock)
+    for (const timer of urlTimers.values()) clearTimeout(timer)
     window.removeEventListener('popstate', restoreURL)
-    objectURLs.forEach((url) => URL.revokeObjectURL(url))
   })
   return {
     data,
@@ -527,6 +445,11 @@ export function useMemories() {
     environmentRecipe,
     loading,
     notice,
+    permissions,
+    loadOnline,
+    reloadEvent,
+    copyDemo,
+    addMember,
     navigate,
     chooseMoment,
     open,

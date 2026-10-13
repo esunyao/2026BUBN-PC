@@ -1,6 +1,7 @@
 package cn.commonagora.world.media
 
 import cn.commonagora.world.config.StorageProperties
+import cn.commonagora.world.memory.MemoryAccess
 import cn.commonagora.world.shared.*
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
@@ -14,14 +15,14 @@ import kotlin.concurrent.withLock
 @Service
 class MediaService(private val jdbc: JdbcTemplate, private val transaction: TransactionTemplate,
                    private val events: EventAccess, private val storage: StorageGateway,
-                   private val properties: StorageProperties) {
+                   private val properties: StorageProperties, private val memories: MemoryAccess) {
     // Bounded lock stripes serialize confirmation of a photo without a growing lock registry.
     // The SQLite service is deployed as a single writer instance; replicas need a durable claim.
     private val confirmationLocks = Array(256) { ReentrantLock() }
     internal var clock: Clock = Clock.systemUTC()
 
     fun presign(eventId: String, userId: String, request: PresignRequest): PresignResponse {
-        events.assertOwner(eventId, userId)
+        memories.requireMember(eventId, userId)
         events.assertParticipant(eventId, request.photographerId)
         validate(request)
         storage.requireAvailable()
@@ -34,24 +35,25 @@ class MediaService(private val jdbc: JdbcTemplate, private val transaction: Tran
         val signed = storage.signUpload(stagingKey, request.contentType, properties.uploadTtl)
         transaction.executeWithoutResult {
             // Ownership and membership are rechecked after signing before inserting the intent.
-            events.assertOwner(eventId, userId)
+            memories.requireMember(eventId, userId)
             events.assertParticipant(eventId, request.photographerId)
             val order = jdbc.queryForObject("SELECT COALESCE(MAX(import_order), -1) + 1 FROM photos WHERE event_id = ?",
                 Int::class.java, eventId)!!
             jdbc.update("""INSERT INTO photos (id,event_id,photographer_id,filename,caption,content_type,
-                declared_bytes,staging_key,object_key,upload_expires_at,status,latitude,longitude,captured_at,import_order,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,'PENDING',?,?,?,?,?)""",
+                declared_bytes,staging_key,object_key,upload_expires_at,status,latitude,longitude,captured_at,import_order,created_at,uploader_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,'PENDING',?,?,?,?,?,?)""",
                 id, eventId, request.photographerId, request.filename, request.caption, request.contentType,
                 request.sizeBytes, stagingKey, finalKey, expires, request.gps?.latitude, request.gps?.longitude,
-                request.capturedAt, order, now)
+                request.capturedAt, order, now, userId)
         }
         return PresignResponse(id, signed.url, signed.headers, expires)
     }
 
     fun confirm(eventId: String, userId: String, photoId: String): PhotoDto {
-        events.assertOwner(eventId, userId)
+        memories.requireMember(eventId, userId)
         return confirmationLocks[(photoId.hashCode() and Int.MAX_VALUE) % confirmationLocks.size].withLock {
             val pending = photo(eventId, photoId)
+            assertUploader(pending, userId)
             if (pending.status == "READY") return@withLock pending.dto
             if (clock.millis() >= pending.expiresAt) throw ApiException(HttpStatus.GONE, "Upload intent expired")
             storage.requireAvailable()
@@ -66,8 +68,9 @@ class MediaService(private val jdbc: JdbcTemplate, private val transaction: Tran
             validateObject(pending, finalized)
             if (finalized.etag != copiedEtag) throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Photo storage is unavailable")
             transaction.execute {
-                events.assertOwner(eventId, userId)
+                memories.requireMember(eventId, userId)
                 val current = photo(eventId, photoId)
+                assertUploader(current, userId)
                 if (current.status == "READY") return@execute current.dto
                 if (clock.millis() >= current.expiresAt) throw ApiException(HttpStatus.GONE, "Upload intent expired")
                 val island = events.assignIsland(eventId, current.dto.gps)
@@ -79,12 +82,12 @@ class MediaService(private val jdbc: JdbcTemplate, private val transaction: Tran
     }
 
     fun download(eventId: String, userId: String, request: DownloadRequest): DownloadResponse {
-        events.assertOwner(eventId, userId)
+        memories.requireMember(eventId, userId)
         if (request.photoIds.size !in 1..100) invalid("Request 1 to 100 photos")
         // Validate the whole request before signing any URL, including duplicates and foreign IDs.
         val photos = request.photoIds.map { id ->
-            val found = photo(eventId, id)
-            if (found.status != "READY") throw ApiException(HttpStatus.NOT_FOUND, "Photo was not found")
+            val found = photoById(id)
+            if (found.status != "READY" || !memories.canReadPhoto(eventId, id, userId)) throw ApiException(HttpStatus.NOT_FOUND, "Photo was not found")
             found
         }
         storage.requireAvailable()
@@ -119,10 +122,21 @@ class MediaService(private val jdbc: JdbcTemplate, private val transaction: Tran
         "SELECT * FROM photos WHERE event_id=? AND id=?",
         { rs, index -> PhotoRecord(PhotoRows.mapper.mapRow(rs, index)!!, rs.getString("status"),
             rs.getString("content_type"), rs.getLong("declared_bytes"), rs.getString("staging_key"),
-            rs.getString("object_key"), rs.getLong("upload_expires_at")) }, eventId, photoId
+            rs.getString("object_key"), rs.getLong("upload_expires_at"), rs.getString("uploader_id")) }, eventId, photoId
     ).singleOrNull() ?: throw ApiException(HttpStatus.NOT_FOUND, "Photo was not found")
+
+    private fun photoById(photoId: String): PhotoRecord = jdbc.query(
+        "SELECT * FROM photos WHERE id=?",
+        { rs, index -> PhotoRecord(PhotoRows.mapper.mapRow(rs, index)!!, rs.getString("status"),
+            rs.getString("content_type"), rs.getLong("declared_bytes"), rs.getString("staging_key"),
+            rs.getString("object_key"), rs.getLong("upload_expires_at"), rs.getString("uploader_id")) }, photoId
+    ).singleOrNull() ?: throw ApiException(HttpStatus.NOT_FOUND, "Photo was not found")
+
+    private fun assertUploader(photo: PhotoRecord, userId: String) {
+        if (photo.uploaderId != userId) throw ApiException(HttpStatus.NOT_FOUND, "Photo was not found")
+    }
 
     private fun invalid(message: String): Nothing = throw ApiException(HttpStatus.BAD_REQUEST, message)
     private data class PhotoRecord(val dto: PhotoDto, val status: String, val contentType: String,
-                                   val declaredBytes: Long, val stagingKey: String, val objectKey: String, val expiresAt: Long)
+                                   val declaredBytes: Long, val stagingKey: String, val objectKey: String, val expiresAt: Long, val uploaderId: String?)
 }

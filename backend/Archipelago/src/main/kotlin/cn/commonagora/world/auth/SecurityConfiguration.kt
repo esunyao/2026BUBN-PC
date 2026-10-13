@@ -53,7 +53,8 @@ class SecurityConfiguration(private val properties: AuthProperties) {
             .csrf { it.disable() }
             .cors(Customizer.withDefaults())
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests { it.anyRequest().hasAuthority("SCOPE_world") }
+            .authorizeHttpRequests { it.requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/register").anonymous().anyRequest().hasAuthority("SCOPE_world") }
+            .addFilterBefore(AuthRequestGuard(properties), SecurityContextHolderFilter::class.java)
             .oauth2ResourceServer {
                 it.jwt(Customizer.withDefaults())
                     .authenticationEntryPoint { _, response, _ -> ApiSecurityErrors.unauthorized(response) }
@@ -69,7 +70,8 @@ class SecurityConfiguration(private val properties: AuthProperties) {
     @Bean @Order(3)
     fun browserChain(http: HttpSecurity): SecurityFilterChain {
         http.authorizeHttpRequests { it.requestMatchers("/login", "/error").permitAll().anyRequest().denyAll() }
-            .formLogin(Customizer.withDefaults())
+            .formLogin { it.loginPage("/login").passwordParameter("passwordDigest").permitAll() }
+            .addFilterBefore(AuthRequestGuard(properties), SecurityContextHolderFilter::class.java)
         return http.build()
     }
 

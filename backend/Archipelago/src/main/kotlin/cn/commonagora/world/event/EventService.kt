@@ -4,17 +4,32 @@ import cn.commonagora.world.shared.*
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.jdbc.core.JdbcTemplate
+import cn.commonagora.world.memory.Moment
+import cn.commonagora.world.memory.Scene
+import tools.jackson.databind.ObjectMapper
+import java.time.Instant
 import java.util.UUID
 import kotlin.math.*
 
 @Service
 @Transactional
-class EventService(private val repository: EventRepository) : EventAccess {
+class EventService(private val repository: EventRepository, private val jdbc: JdbcTemplate? = null, private val mapper: ObjectMapper? = null) : EventAccess {
     @Transactional(readOnly = true)
     fun list(userId: String): List<EventSummary> = repository.list(userId)
     fun create(userId: String, request: CreateEventRequest): EventSummary {
-        val event = EventSummary(id(), validName(request.name, 100), System.currentTimeMillis())
+        if (request.type !in listOf("trip","longActivity")) bad("Invalid event type")
+        val event = EventSummary(id(), validName(request.title ?: request.name ?: "", 100), System.currentTimeMillis())
         repository.insert(event, userId)
+        if (jdbc != null && mapper != null) {
+            val ownerName=jdbc.queryForObject("SELECT username FROM users WHERE id=?",String::class.java,userId) ?: "owner"
+            val participantId=id();val sceneId=id();val momentId=id()
+            jdbc.update("UPDATE events SET subtitle=?,event_type=? WHERE id=?","从这里开始，留下共同的记忆。",request.type,event.id)
+            jdbc.update("INSERT INTO participants(id,event_id,name,initials,color,user_id) VALUES(?,?,?,?,?,?)",participantId,event.id,ownerName,ownerName.take(2),"#c77455",userId)
+            jdbc.update("INSERT INTO event_members(event_id,user_id,participant_id,role) VALUES(?,?,?,'owner')",event.id,userId,participantId)
+            jdbc.update("INSERT INTO memory_scenes(id,event_id,content) VALUES(?,?,?)",sceneId,event.id,mapper.writeValueAsString(Scene(sceneId,event.id,"第一章","添加属于你们的第一段回忆。",environment=mapOf("preset" to "neutral"))))
+            jdbc.update("INSERT INTO memory_moments(id,event_id,scene_id,content) VALUES(?,?,?,?)",momentId,event.id,sceneId,mapper.writeValueAsString(Moment(momentId,sceneId,"最初的时刻",Instant.now().toString(),"今日","morning")))
+        }
         return event
     }
     @Transactional(readOnly = true)

@@ -14,7 +14,7 @@ data class PhotoDto(val id: String, val filename: String, val caption: String, v
                     val source: String = "import")
 data class EventSnapshot(val event: EventSummary, val participants: List<ParticipantDto>,
                          val islands: List<IslandDto>, val photos: List<PhotoDto>)
-data class CreateEventRequest(@field:NotBlank @field:Size(max = 100) val name: String)
+data class CreateEventRequest(val name: String? = null, val title: String? = null, val type: String = "trip")
 data class CreateParticipantRequest(@field:NotBlank @field:Size(max = 60) val name: String,
                                     @field:Pattern(regexp = "#[0-9a-fA-F]{6}") val color: String = "#c77455")
 data class PlacementRequest(val islandId: String? = null, @field:Size(max = 100) val newPlaceName: String? = null)

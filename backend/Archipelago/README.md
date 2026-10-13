@@ -2,7 +2,7 @@
 
 共同时刻世界的单节点后端，负责 OAuth/OIDC 登录、事件和拍摄者标签、SQLite 元数据，以及 RustFS 上传／读取预签名。图片字节不经过本服务。
 
-当前前端保持原样，尚未调用后端。接口联调以 [OpenAPI](doc/openapi.yaml) 为准；检查结果及未验证事项见 [验证记录](doc/verification.md)。
+前端已通过 OIDC 和  接入。接口以 [OpenAPI](doc/openapi.yaml) 为准；检查结果及未验证事项见 [验证记录](doc/verification.md)。
 
 ## 1. 初始化环境
 
@@ -23,7 +23,7 @@ cp .env.example .env
 
 Windows PowerShell／cmd 使用 .\gradlew.bat test 和 .\gradlew.bat bootRun。JAVA_HOME 必须指向 JDK 21；Git Bash／WSL 与 Windows 使用各自匹配的 Java 环境，不能用不同系统的旧 Java 启动 Wrapper。
 
-默认监听 http://localhost:8080。访问 /.well-known/openid-configuration 可检查 OIDC 元数据；/login 是框架生成的登录页。直接打开 /api/v1/events 不会凭登录 Cookie 获得访问权限，需使用授权码流程取得 Access Token。
+默认监听 http://localhost:8080。访问 /.well-known/openid-configuration 可检查 OIDC 元数据；/login 是项目登录页。直接打开 /api/v1/events 不会凭登录 Cookie 获得访问权限，需使用授权码流程取得 Access Token。
 
 ## 2. 本地配置
 
@@ -93,3 +93,11 @@ java -jar build/libs/world-0.0.1-SNAPSHOT.jar
 最终 jar 文件名以 build/libs 实际产物为准。运行 jar 的工作目录也应为本目录，以便 .env、SQLite 和密钥相对路径保持一致。
 
 测试使用临时 SQLite、测试密钥和本地 HTTP 存储模拟；不读取真实 RustFS 密钥。源码入口见 [AGENTS](AGENTS.md) 和 [模块总览](doc/README.md)。
+
+## 在线记忆与成员
+
+V2 和 V3 Flyway 迁移增加邮箱、成员、章节、时刻、贡献、发现反馈和请求幂等记录，见[数据库说明](doc/database.md)。新账号通过 /api/v1/auth/register 建立，用户名、邮箱唯一。客户端对原密码 UTF-8 字节做 SHA-256，服务端对摘要做 BCrypt。摘要仍可重放，生产必须使用 HTTPS。旧演示账号只在配置的旧密码匹配时升级。
+
+事件创建者可按用户名添加已注册成员；成员可贡献，只有实际作者可更新或删除自己的内容。public 当前仍仅对事件成员可见。示例篇章只读，复制后可编辑。素材引用必须指向已确认且有权限的对象；导出 JSON 不含照片字节或签名 URL。
+
+真实浏览器上传需要 RustFS 桶 CORS 允许前端来源以及 PUT、GET、HEAD；本轮未改变桶配置。见[验证记录](doc/verification.md)。

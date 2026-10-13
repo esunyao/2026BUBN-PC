@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/events")
-class EventController(private val service: EventService) {
+class EventController(private val service: EventService, private val memories: cn.commonagora.world.memory.MemoryService) {
     @GetMapping
-    fun list(@AuthenticationPrincipal jwt: Jwt) = service.list(jwt.userId())
+    fun list(@AuthenticationPrincipal jwt: Jwt) = memories.listEvents(jwt.userId())
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@AuthenticationPrincipal jwt: Jwt, @Valid @RequestBody request: CreateEventRequest) = service.create(jwt.userId(), request)

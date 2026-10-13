@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useMemories } from './useMemories'
+import { auth, initializeAuth, login, logout, register } from './useAuth'
+import AuthGate from '../features/auth/AuthGate.vue'
 import { useDiscovery } from './useDiscovery'
 import DiscoverPage from '../features/discovery/DiscoverPage.vue'
 import { isVisible } from '../features/discovery/engine'
@@ -38,7 +40,26 @@ const {
   createEvent,
   exportArchive,
   importArchive,
+  permissions,
+  copyDemo,
+  addMember,
 } = app
+onMounted(async () => {
+  await initializeAuth()
+  if (auth.account) await app.loadOnline().catch(() => {})
+})
+const memberName = ref('')
+const memberBusy = ref(false)
+async function addEventMember() {
+  memberBusy.value = true
+  try { await addMember(memberName.value); memberName.value = '' }
+  catch (error) { notice.value = error instanceof Error ? error.message : '添加成员失败。' }
+  finally { memberBusy.value = false }
+}
+async function copyCurrentDemo() {
+  try { await copyDemo(state.activeEventId) }
+  catch (error) { notice.value = error instanceof Error ? error.message : '复制示例失败。' }
+}
 const discovery = useDiscovery(app)
 const publicData = computed(() => ({
   ...data.value,
@@ -123,6 +144,7 @@ const eventScenes = computed(() =>
 const eventPeople = computed(() =>
   data.value.participants.filter((p) => event.value?.participantIds.includes(p.id)),
 )
+const editablePeople = computed(() => eventPeople.value.filter((p) => p.id === state.currentViewerId))
 const sharedPeople = computed(() => [
   ...new Set(
     (link.value?.contributionIds ?? [])
@@ -155,6 +177,9 @@ const busy = ref(false),
 const archiveInput = ref<HTMLInputElement>()
 const author = (c?: Contribution) => names.value[c?.participantId ?? ''] ?? ''
 const momentFor = (c?: Contribution) => data.value.moments.find((m) => m.id === c?.momentId)
+const editableContributions = computed(() => data.value.contributions.filter((c) =>
+  c.ownerUserId === auth.account?.id && moments.value.some((m) => m.id === c.momentId),
+))
 function cover(sceneId: string) {
   return publicData.value.contributions.find(
     (c) => data.value.moments.find((m) => m.id === c.momentId)?.sceneId === sceneId && c.mediaUrl,
@@ -166,7 +191,7 @@ function resetPointer() {
 }
 function editActive() {
   const id = active.value?.id
-  if (id) {
+  if (id && active.value?.ownerUserId === auth.account?.id && !permissions.value?.isReadOnly) {
     open('edit')
     loadEdit(id)
   }
@@ -226,11 +251,7 @@ function nearest() {
 function loadEdit(id: string) {
   const c = data.value.contributions.find((c) => c.id === id)
   editor.id = id
-  editor.participantId =
-    c?.participantId ??
-    (state.activeParticipantId === 'all'
-      ? (eventPeople.value[0]?.id ?? 'a')
-      : state.activeParticipantId)
+  editor.participantId = state.currentViewerId
   editor.momentId = c?.momentId ?? state.activeMomentId
   editor.text = c?.writtenText ?? ''
   editor.mood = c?.mood[0] ?? '平静'
@@ -267,10 +288,10 @@ async function archive(e: Event) {
   }
   input.value = ''
 }
-function create() {
+async function create() {
   if (createTitle.value.trim()) {
-    createEvent(createTitle.value, createType.value)
-    createTitle.value = ''
+    try { await createEvent(createTitle.value, createType.value); createTitle.value = '' }
+    catch (error) { notice.value = error instanceof Error ? error.message : '创建失败。' }
   }
 }
 const dialogTitle = computed(
@@ -287,7 +308,9 @@ const dialogTitle = computed(
 )
 </script>
 <template>
+  <AuthGate v-if="!auth.account" :loading="auth.loading" :error="auth.error" :register="register" @login="login()" />
   <main
+    v-else
     class="memory-app"
     :data-theme="environmentRecipe.preset"
     :style="{
@@ -310,8 +333,9 @@ const dialogTitle = computed(
         >
           记忆发现 / Discover</button
         ><button @click="archiveInput?.click()">导入存档</button
-        ><button @click="exportArchive">导出</button
-        ><button class="header-create" @click="open(state.page === 'scene' ? 'edit' : 'create')">
+        ><button @click="exportArchive().catch((error) => notice = error.message)">导出</button
+        ><button class="text-link" @click="logout()">退出 {{ auth.account.username }}</button
+        ><button class="header-create" @click="open(state.page === 'scene' && !permissions?.isReadOnly ? 'edit' : 'create')">
           ＋ {{ state.page === 'scene' ? '留下记忆' : '创建篇章' }}
         </button>
       </nav>
@@ -325,7 +349,7 @@ const dialogTitle = computed(
         @change="archive"
       />
     </header>
-    <div v-if="loading" class="loading-status" role="status">正在整理本地记忆…</div>
+    <div v-if="loading" class="loading-status" role="status">正在整理线上记忆…</div>
     <section
       v-if="state.page === 'home'"
       class="home-page"
@@ -357,7 +381,7 @@ const dialogTitle = computed(
               >本段经历有 {{ discovery.count(e.id) }} 个值得重新发现的瞬间</small
             ><span class="cover-arrow">↗</span>
           </div>
-          <span class="demo-label">{{ e.isDemo ? '示例事件 · 真实图库摄影' : '本地篇章' }}</span></a
+          <span class="demo-label">{{ e.isDemo ? '示例事件 · 真实图库摄影' : '线上篇章' }}</span></a
         >
       </div>
       <footer class="home-footer">
@@ -375,10 +399,15 @@ const dialogTitle = computed(
         <div>
           <span class="eyebrow"
             >{{ event?.type === 'trip' ? 'TRAVEL JOURNAL' : 'A SHARED PROJECT' }} /
-            {{ event?.isDemo ? '示例事件' : '本地篇章' }}</span
+             {{ event?.isDemo ? '示例事件' : '线上篇章' }}</span
           >
           <h1>{{ event?.title }}</h1>
           <p>{{ event?.subtitle }}</p>
+          <button v-if="event?.isDemo" class="text-link" @click="copyCurrentDemo">复制为我的篇章 ↗</button>
+          <form v-else-if="permissions?.canManageMembers" class="member-form" @submit.prevent="addEventMember">
+            <label>添加参与者<input v-model="memberName" placeholder="已注册用户名" required pattern="[A-Za-z0-9_-]{3,32}" /></label>
+            <button class="text-link" :disabled="memberBusy">{{ memberBusy ? '添加中…' : '添加' }}</button>
+          </form>
         </div>
         <span class="chapter-count">{{ eventScenes.length }}<small>个记忆章节</small></span>
       </div>
@@ -405,10 +434,11 @@ const dialogTitle = computed(
       :selected="discovery.selected.value"
       :requested-id="state.selectedFindingId"
       :viewer-id="state.currentViewerId"
+      :account-id="auth.account.id"
+      :read-only="permissions?.isReadOnly"
       :event-id="state.activeEventId"
       :feedback="discovery.feedback.value"
       :hidden="discovery.showHidden.value"
-      @viewer="state.currentViewerId = $event"
       @select="discovery.select"
       @close="discovery.close"
       @back="discovery.back"
@@ -427,7 +457,7 @@ const dialogTitle = computed(
       <div class="scene-topline">
         <button class="text-link" @click="navigate('event')">← {{ event?.title }}</button
         ><span>{{
-          event?.isDemo ? '示例事件 / 时间、作者与文字为演示数据' : '本地篇章 / 仅保存在此浏览器'
+          event?.isDemo ? '示例事件 / 时间、作者与文字为演示数据' : '线上篇章 / 参与者共同保存'
         }}</span
         ><select
           aria-label="跳转场景"
@@ -582,7 +612,7 @@ const dialogTitle = computed(
           <blockquote>{{ active.writtenText }}</blockquote>
           <p>{{ momentFor(active)?.label }}</p>
           <button
-            v-if="active.participantId === state.currentViewerId"
+             v-if="active.ownerUserId === auth.account.id && !permissions?.isReadOnly"
             class="text-link"
             @click="editActive"
           >
@@ -612,9 +642,7 @@ const dialogTitle = computed(
             >
               <option value="">＋ 新增记忆</option>
               <option
-                v-for="c in data.contributions.filter((c) =>
-                  moments.some((m) => m.id === c.momentId),
-                )"
+                v-for="c in editableContributions"
                 :key="c.id"
                 :value="c.id"
               >
@@ -626,7 +654,7 @@ const dialogTitle = computed(
           <div class="form-row">
             <label
               >记录者<select v-model="editor.participantId" :disabled="busy">
-                <option v-for="p in eventPeople" :key="p.id" :value="p.id">
+                <option v-for="p in editablePeople" :key="p.id" :value="p.id">
                   {{ p.displayName }}
                 </option>
               </select></label
@@ -666,8 +694,8 @@ const dialogTitle = computed(
             /></label>
           </div>
           <p class="muted">
-            照片存于当前浏览器 IndexedDB，文字与配置存于 localStorage。支持 JPEG / PNG / WebP，最大
-            12 MB。EXIF 缺失时不会虚构地点或日期；所属时刻由你选择。编辑样例后会标记为用户原文。
+            照片直传对象存储，文字保存在事件中。支持 JPEG / PNG / WebP，最大
+            12 MB。EXIF 缺失时不会虚构地点或日期；所属时刻由你选择。
           </p>
           <p v-if="editError" role="alert" class="form-error">{{ editError }}</p>
           <button class="primary" type="submit" :disabled="busy">
@@ -691,7 +719,7 @@ const dialogTitle = computed(
               <option value="longActivity">长期活动</option>
             </select></label
           >
-          <p class="muted">创建第一章与今日时刻，然后添加照片或文字。数据保存在这个浏览器。</p>
+        <p class="muted">创建第一章与今日时刻，然后添加照片或文字。数据保存在你的线上篇章。</p>
           <button class="primary" :disabled="!createTitle.trim()">创建并留下第一段记忆 ↗</button>
         </form>
       </MemoryDialog></Transition
