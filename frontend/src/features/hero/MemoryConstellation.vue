@@ -28,6 +28,26 @@ const nodes = computed(() =>
   ),
 )
 const graphHeight = computed(() => momentNodes.value.length * 230 + 30)
+const findingNames = {
+  shared_moment: '记忆交汇',
+  unseen_moment: '另一人视角',
+  missing_piece: '空白片段',
+  then_now: '昨日与今日',
+  memory_thread: '记忆线索',
+  behind_spotlight: '掌声之前',
+}
+const findingNodes = computed(() => {
+  const offsets = new Map<string, number>()
+  return (props.findings ?? []).flatMap((f) => {
+    const anchors = nodes.value.filter((n) => f.evidenceIds.includes(n.c.id))
+    const first = anchors[0]
+    if (!first) return []
+    const row = first.c.momentId,
+      offset = offsets.get(row) ?? 0
+    offsets.set(row, offset + 1)
+    return [{ f, anchors, x: 915, y: Math.max(35, first.y - 65) + offset * 42 }]
+  })
+})
 const selected = computed(() => nodes.value.find((n) => n.c.id === selectedId.value)?.c)
 const selectedMoment = computed(() => momentNodes.value.find((n) => n.m.id === selectedId.value)?.m)
 const chapterEdges = computed(() =>
@@ -90,14 +110,8 @@ const name = (c: Contribution) =>
 </script>
 <template>
   <div v-if="findings?.length" class="graph-discoveries">
-    <button
-      v-for="f in findings
-        .filter((f) => f.type === 'missing_piece' || f.type === 'unseen_moment')
-        .slice(0, 4)"
-      :key="f.id"
-      @click="emit('finding', f.id)"
-    >
-      {{ f.type === 'missing_piece' ? '空白片段' : '另一人视角' }} ·
+    <button v-for="f in findings.slice(0, 8)" :key="f.id" @click="emit('finding', f.id)">
+      {{ findingNames[f.type] }} ·
       {{
         data.moments.find(
           (m) => m.id === data.contributions.find((c) => c.id === f.evidenceIds[0])?.momentId,
@@ -116,7 +130,7 @@ const name = (c: Contribution) =>
     ><button @click="list = !list">{{ list ? '关系地图' : '节点目录' }}</button>
   </div>
   <p class="graph-hint">
-    拖动空白处平移 · 滚轮缩放 · 点选相纸查看关联。连线表示手工交汇、同一人物或时间先后。
+    拖动空白处平移 · 滚轮缩放 · 点选相纸查看关联。虚线连接发现与证据，点击线索查看来源。
   </p>
   <div
     v-if="!list"
@@ -135,6 +149,19 @@ const name = (c: Contribution) =>
       }"
     >
       <svg class="graph-edges" width="1100" :height="graphHeight">
+        <g v-for="node in findingNodes" :key="node.f.id">
+          <line
+            v-for="anchor in node.anchors"
+            :key="anchor.c.id"
+            :x1="node.x"
+            :y1="node.y"
+            :x2="anchor.x"
+            :y2="anchor.y"
+            stroke-dasharray="5 7"
+          >
+            <title>{{ findingNames[node.f.type] }} · {{ node.f.reason }}</title>
+          </line>
+        </g>
         <line
           v-for="edge in chapterEdges"
           :key="edge.b.m.id"
@@ -166,6 +193,16 @@ const name = (c: Contribution) =>
           <title>{{ edge.reason }}</title>
         </line>
       </svg>
+      <button
+        v-for="node in findingNodes"
+        :key="node.f.id"
+        class="graph-finding"
+        :style="{ left: `${node.x}px`, top: `${node.y}px` }"
+        :aria-label="`${findingNames[node.f.type]}：${node.f.title}`"
+        @click="emit('finding', node.f.id)"
+      >
+        {{ findingNames[node.f.type] }} ↗
+      </button>
       <button
         v-for="node in momentNodes"
         :key="node.m.id"
@@ -201,6 +238,9 @@ const name = (c: Contribution) =>
     </div>
   </div>
   <div v-else class="node-list">
+    <button v-for="node in findingNodes" :key="node.f.id" @click="emit('finding', node.f.id)">
+      {{ findingNames[node.f.type] }} · {{ node.f.title }} · {{ node.f.evidenceIds.length }} 份证据
+    </button>
     <button v-for="row in momentNodes" :key="row.m.id" @click="selectedId = row.m.id">
       时刻 · {{ row.m.label }} · {{ row.m.title }}
     </button>
@@ -228,3 +268,16 @@ const name = (c: Contribution) =>
     {{ momentNodes.length }} 个时刻，{{ nodes.length }} 段记忆，相互连结。选择相纸或时刻开始探索。
   </p>
 </template>
+<style scoped>
+.graph-finding {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 7px 10px;
+  border: 1px dashed var(--accent, #7f705c);
+  background: var(--paper, #f9f6ed);
+  border-radius: 14px;
+  font-size: 12px;
+  max-width: 170px;
+  z-index: 2;
+}
+</style>

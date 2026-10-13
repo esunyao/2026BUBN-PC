@@ -1,5 +1,11 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import type { Contribution, MemoryData, ViewMode, EnvironmentPreset } from '../shared/memoryTypes'
+import type {
+  Contribution,
+  MemoryData,
+  ViewMode,
+  EnvironmentPreset,
+  SharedMomentLink,
+} from '../shared/memoryTypes'
 import { createMemoryDemo, presets } from './memoryDemo'
 import { readMedia, storeMedia, storeMediaBatch } from '../shared/lib/memoryStorage'
 import type { AnalyzedPhoto } from '../features/import/photoAnalysis'
@@ -7,6 +13,8 @@ import type { EventCandidate } from '../features/import/eventGrouping'
 import { buildChapterImport } from '../features/import/chapterImport'
 import { isVisible } from '../features/discovery/engine'
 import { importPhotos } from '../features/import/importPhotos'
+import { manageMemory } from './memoryManagement'
+import type { MemoryManagementAction } from '../shared/memoryTypes'
 
 const STORAGE = 'shared-memories-v1'
 export function validateArchive(value: unknown): value is MemoryData {
@@ -238,14 +246,82 @@ export function useMemories() {
       current.value.find((c) => c.id === state.activeContributionId) ??
       visible.value.find((c) => c.kind === 'photo'),
   )
-  const link = computed(() =>
-    data.value.links.find(
+  const link = computed<SharedMomentLink | undefined>(() => {
+    const curated = data.value.links.find(
       (l) =>
         l.contributionIds.includes(active.value?.id ?? '') &&
-        l.momentIds.includes(state.activeMomentId),
+        l.momentIds.includes(state.activeMomentId) &&
+        l.contributionIds.every((id) => current.value.some((c) => c.id === id)),
+    )
+    if (curated) return curated
+    const anchor = active.value
+    if (
+      !anchor ||
+      anchor.kind !== 'photo' ||
+      !['exact', 'approximate'].includes(anchor.timeEvidence?.precision ?? '')
+    )
+      return
+    const time = Date.parse(anchor.timeEvidence?.start ?? '')
+    if (!Number.isFinite(time)) return
+    const seen = new Set<string>([anchor.participantId])
+    const photos = [
+      anchor,
+      ...current.value.filter((c) => {
+        if (
+          c.kind !== 'photo' ||
+          seen.has(c.participantId) ||
+          c.mediaUrl === anchor.mediaUrl ||
+          !['exact', 'approximate'].includes(c.timeEvidence?.precision ?? '') ||
+          !['exif', 'user', 'demo'].includes(c.timeEvidence?.source ?? '')
+        )
+          return false
+        const difference = Math.abs(Date.parse(c.timeEvidence?.start ?? '') - time)
+        if (!Number.isFinite(difference) || difference > 15 * 60000) return false
+        seen.add(c.participantId)
+        return true
+      }),
+    ]
+    if (photos.length < 2) return
+    return {
+      id: `local-${state.activeMomentId}`,
+      momentIds: [state.activeMomentId],
+      contributionIds: photos.map((c) => c.id),
+      relation: 'sameMoment',
+      reason: '用户收录到同一时刻、可信时间相差不超过15分钟的不同记录者视角。',
+      confidence: 0.75,
+    }
+  })
+  const activePairId = ref('')
+  const scenePairs = computed(() =>
+    data.value.pairs.filter(
+      (p) =>
+        p.sceneId === state.activeSceneId &&
+        [p.beforeContributionId, p.afterContributionId].every((id) =>
+          data.value.contributions.some(
+            (c) =>
+              c.id === id && isVisible(c, state.currentViewerId, event.value?.participantIds ?? []),
+          ),
+        ),
     ),
   )
-  const pair = computed(() => data.value.pairs.find((p) => p.sceneId === state.activeSceneId))
+  const pair = computed(
+    () => scenePairs.value.find((p) => p.id === activePairId.value) ?? scenePairs.value[0],
+  )
+  const managementUndo = ref<MemoryData>()
+  function manage(action: MemoryManagementAction) {
+    const previous = JSON.parse(JSON.stringify(data.value)) as MemoryData
+    manageMemory(data.value, state.activeEventId, state.currentViewerId, action, presets)
+    managementUndo.value = previous
+    if (!data.value.contributions.some((c) => c.id === state.activeContributionId))
+      state.activeContributionId = ''
+    notice.value = '修改已保存，可撤销上一步。'
+  }
+  function undoManagement() {
+    if (!managementUndo.value) return
+    data.value = managementUndo.value
+    managementUndo.value = undefined
+    notice.value = '已撤销上一步编辑。'
+  }
   const environmentRecipe = computed(() => ({
     ...(state.themeOverride
       ? presets[state.themeOverride]
@@ -384,12 +460,8 @@ export function useMemories() {
     if (!input.text.trim() && !input.file && !input.id)
       throw new Error('请留下文字或选择一张照片。')
     const existing = data.value.contributions.find((c) => c.id === input.id)
-    if (
-      existing &&
-      data.value.moments.find((m) => m.id === existing.momentId)?.originGapId &&
-      existing.participantId !== state.currentViewerId
-    )
-      throw new Error('只能编辑自己对空白片段的贡献。')
+    if (existing && existing.participantId !== state.currentViewerId)
+      throw new Error('只能编辑当前记录者自己的贡献。')
     const c: Contribution = existing
       ? { ...existing }
       : {
@@ -443,7 +515,9 @@ export function useMemories() {
             precision: input.file ? 'exact' : (c.timeEvidence?.precision ?? 'exact'),
             source: input.file ? 'exif' : (c.timeEvidence?.source ?? 'exif'),
           }
-        : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
+        : c.kind === 'photo'
+          ? { precision: 'unknown', source: 'user' }
+          : { start: m.startAt, end: m.endAt, precision: 'approximate', source: 'user' }
     if (existing) {
       data.value.links.forEach((link) => {
         if (!link.momentIds.includes(c.momentId))
@@ -673,6 +747,11 @@ export function useMemories() {
     active,
     link,
     pair,
+    scenePairs,
+    activePairId,
+    manage,
+    managementUndo,
+    undoManagement,
     environmentRecipe,
     loading,
     notice,

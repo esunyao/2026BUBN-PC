@@ -308,14 +308,65 @@ export const backstageDetector: DiscoveryDetector = {
             ctx.eventId,
             [before, after],
             '掌声之前',
-            '依据 planning / performance 的 Demo 阶段标注回看准备与演出，不推断个人劳动贡献或情绪。',
+            '依据用户或 Demo 的筹备 / 演出阶段标注回看准备与演出，不推断个人劳动贡献或情绪。',
             ['MANUAL_PHASE_TAGS', 'SAME_EVENT'],
           ),
         ]
       : []
   },
 }
-export const threadDetector: DiscoveryDetector = { id: 'thread-contract', detect: () => [] }
+export const threadDetector: DiscoveryDetector = {
+  id: 'object_thread',
+  detect(ctx) {
+    const tags = new Map<string, IndexedContribution[]>()
+    const generic = new Set([
+      'person',
+      'people',
+      'human',
+      'face',
+      '人物',
+      '人',
+      '人脸',
+      '照片',
+      'image',
+      'photo',
+    ])
+    for (const c of ctx.contributions) {
+      if (c.kind !== 'photo' || (!c.isDemo && c.analysis?.source !== 'user')) continue
+      for (const tag of new Set(
+        (c.analysis?.objects ?? [])
+          .slice(0, 12)
+          .map((t) => t.normalize('NFKC').trim().toLowerCase().slice(0, 40)),
+      )) {
+        if (!tag || generic.has(tag)) continue
+        tags.set(tag, [...(tags.get(tag) ?? []), c])
+      }
+    }
+    const results: DiscoveryFinding[] = []
+    for (const [tag, records] of [...tags].sort(([a], [b]) => a.localeCompare(b))) {
+      const evidence = [...new Map(records.map((c) => [c.sceneId, c])).values()].slice(0, 4)
+      if (
+        evidence.length < 2 ||
+        new Set(evidence.map((c) => c.contentHash ?? c.mediaUrl ?? c.id)).size < 2
+      )
+        continue
+      const f = finding(
+        ctx,
+        'memory_thread',
+        tag,
+        evidence,
+        `沿着「${tag}」再走一遍`,
+        '不同事件中出现了相同的物品或道具标注。它们可能属于同一条线索，仍需你确认；没有自动推断人物身份。',
+        ['EXPLICIT_OBJECT_TAG', 'CROSS_SCENE'],
+      )
+      f.provenance = evidence.every((c) => c.isDemo) ? 'demo' : 'user'
+      f.confidenceBand = 'medium'
+      results.push(f)
+      if (results.length >= 8) break
+    }
+    return results
+  },
+}
 export const registry: DiscoveryDetector[] = [
   sameMomentDetector,
   unseenDetector,

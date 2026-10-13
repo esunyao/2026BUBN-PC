@@ -49,6 +49,7 @@ const types: Array<[DiscoveryType, string]> = [
   ['shared_moment', '交汇时刻'],
   ['missing_piece', '尚未讲述'],
   ['then_now', '时光变化'],
+  ['memory_thread', '记忆线索'],
   ['behind_spotlight', '其他线索'],
 ]
 const event = computed(() => props.data.events.find((e) => e.id === props.eventId))

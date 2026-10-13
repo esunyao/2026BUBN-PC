@@ -6,6 +6,7 @@ export interface TimeEvidence {
   source: Provenance
 }
 export interface MediaAnalysis {
+  source?: Provenance
   sceneTags: string[]
   objects: string[]
   activities: string[]
@@ -124,4 +125,41 @@ export interface PendingPhoto extends Omit<Contribution, 'momentId' | 'kind'> {
   reason: string
 }
 export type ViewMode =
-  'scene' | 'focus' | 'shared' | 'then-now' | 'constellation' | 'edit' | 'create' | 'import-photos'
+  | 'scene'
+  | 'focus'
+  | 'shared'
+  | 'then-now'
+  | 'constellation'
+  | 'edit'
+  | 'create'
+  | 'import-photos'
+  | 'manage'
+
+export type MemoryManagementAction =
+  | { type: 'chapter'; title: string; subtitle: string }
+  | { type: 'person'; id?: string; name: string; color: string }
+  | { type: 'scene'; id?: string; title: string; subtitle: string; preset: EnvironmentPreset }
+  | {
+      type: 'moment'
+      id?: string
+      sceneId: string
+      title: string
+      startAt: string
+      lighting: EnvironmentRecipe['lighting']
+    }
+  | {
+      type: 'record'
+      id: string
+      momentId: string
+      text: string
+      generatedCaption: string
+      objects: string[]
+      phase: string
+      visibility: NonNullable<Contribution['visibility']>
+      participantTags: string[]
+      tagsConsent: boolean
+      time?: string
+    }
+  | { type: 'remove-record'; id: string }
+  | { type: 'pair'; before: string; after: string; aligned: boolean }
+  | { type: 'remove-pair'; id: string }

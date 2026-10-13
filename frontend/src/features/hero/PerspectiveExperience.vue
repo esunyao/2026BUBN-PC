@@ -5,6 +5,7 @@ import MemoryImage from './MemoryImage.vue'
 const props = defineProps<{
   hideConfidence?: boolean
   readOnly?: boolean
+  canEdit?: boolean
   data: MemoryData
   active: Contribution
   link?: SharedMomentLink
@@ -100,7 +101,7 @@ function change(id: string) {
             <p v-if="active.capturedAt" class="muted">
               原始拍摄时间：{{ new Date(active.capturedAt).toLocaleString() }}
             </p>
-            <button v-if="!readOnly" class="text-link" @click="emit('edit')">
+            <button v-if="!readOnly && canEdit !== false" class="text-link" @click="emit('edit')">
               编辑这段记忆
             </button></template
           >

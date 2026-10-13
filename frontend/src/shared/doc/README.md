@@ -9,3 +9,5 @@ Contribution 扩展 TimeEvidence、visibility、participantTags/tagsConsent 和�
 memoryStorage.storeMediaBatch 将同批照片写入一个 IndexedDB 事务；归类算法与模型保持在 features/import。
 
 MemoryData.pendingPhotos 可选，旧存档兼容；待整理记录有篇章/作者关联，不能伪造 momentId。原始 HEIC 与显示预览分别保存。
+
+2026-10-13：MediaAnalysis.source 标记标注来源，MemoryManagementAction 为整理界面的类型化命令。新增字段兼容旧存档。

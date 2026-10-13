@@ -13,7 +13,10 @@ const time = (c?: Contribution) => props.data.moments.find((m) => m.id === c?.mo
   <p class="mode-intro">
     {{
       pair.comparisonMode === 'sideBySide'
-        ? '不同角度的记录，用并排对照看见时间的变化。素材为示例，并非同一地点的实拍证据。'
+        ? '不同角度的记录，用并排对照看见变化。' +
+          (find(pair.beforeContributionId)?.isDemo || find(pair.afterContributionId)?.isDemo
+            ? '素材包含示例，并非同一地点的实拍证据。'
+            : '由用户手动建立关联；未知时间不作为时间演变证据。')
         : '拖动分界，查看同一构图在两个时刻的变化。'
     }}
   </p>

@@ -14,9 +14,11 @@ import MemoryDialog from '../features/hero/MemoryDialog.vue'
 import MemoryConstellation from '../features/hero/MemoryConstellation.vue'
 import ThenAndNow from '../features/hero/ThenAndNow.vue'
 import PerspectiveExperience from '../features/hero/PerspectiveExperience.vue'
+import MemoryManager from '../features/hero/MemoryManager.vue'
 import PhotoEventImport from '../features/import/PhotoEventImport.vue'
 import type { AnalyzedPhoto } from '../features/import/photoAnalysis'
 import type { EventCandidate } from '../features/import/eventGrouping'
+import type { MemoryManagementAction } from '../shared/memoryTypes'
 const app = useMemories()
 const {
   data,
@@ -180,6 +182,18 @@ const busy = ref(false),
   createTitle = ref(''),
   createType = ref<'trip' | 'longActivity'>('trip')
 const archiveInput = ref<HTMLInputElement>()
+function openManager() {
+  editError.value = ''
+  open('manage')
+}
+function manage(action: MemoryManagementAction) {
+  editError.value = ''
+  try {
+    app.manage(action)
+  } catch (error) {
+    editError.value = error instanceof Error ? error.message : '修改失败。'
+  }
+}
 const author = (c?: Contribution) => names.value[c?.participantId ?? ''] ?? ''
 const momentFor = (c?: Contribution) => data.value.moments.find((m) => m.id === c?.momentId)
 function cover(sceneId: string) {
@@ -327,6 +341,7 @@ const dialogTitle = computed(
       edit: '留下一段记忆',
       create: '开启共同的篇章',
       'import-photos': '把照片整理成事件',
+      manage: '整理这段共同记忆',
     })[state.viewMode],
 )
 </script>
@@ -353,6 +368,7 @@ const dialogTitle = computed(
           @click="discovery.enter()"
         >
           记忆发现 / Discover</button
+        ><button v-if="event && state.page !== 'home'" @click="openManager">整理篇章</button
         ><button @click="startPhotoImport">导入篇章照片</button
         ><button @click="archiveInput?.click()">导入存档</button
         ><button @click="exportArchive">导出</button
@@ -529,7 +545,12 @@ const dialogTitle = computed(
             }}</span
           >
           <h1>{{ scene?.title }}</h1>
-          <p class="scene-subtitle">{{ scene?.subtitle }}</p>
+          <p class="scene-subtitle">
+            {{ scene?.subtitle
+            }}<small v-if="scene?.copySource">
+              · {{ scene.copySource === 'deepseek' ? 'DeepSeek 自动文案' : '本地自动文案' }}</small
+            >
+          </p>
           <div class="story-time">
             <span>{{ moment?.label }}</span
             ><i /><span>{{ moment?.title }}</span>
@@ -642,6 +663,7 @@ const dialogTitle = computed(
           "
           :data="publicData"
           :active="active"
+          :can-edit="active.participantId === state.currentViewerId"
           :link="link"
           :shared="state.viewMode === 'shared'"
           :person-id="sharedPerson"
@@ -667,10 +689,26 @@ const dialogTitle = computed(
             编辑我的文字
           </button>
         </article>
-        <ThenAndNow
-          v-else-if="state.viewMode === 'then-now' && pair"
-          :pair="pair"
+        <div v-else-if="state.viewMode === 'then-now' && pair">
+          <label v-if="app.scenePairs.value.length > 1"
+            >选择对照<select v-model="app.activePairId.value">
+              <option v-for="(p, i) in app.scenePairs.value" :key="p.id" :value="p.id">
+                对照 {{ i + 1 }} · {{ p.comparisonMode === 'wipe' ? '滑动' : '并排' }}
+              </option>
+            </select></label
+          >
+          <ThenAndNow :key="pair.id" :pair="pair" :data="publicData" />
+        </div>
+        <MemoryManager
+          v-else-if="state.viewMode === 'manage' && event"
           :data="publicData"
+          :event-id="event.id"
+          :viewer-id="state.currentViewerId"
+          :can-undo="!!app.managementUndo.value"
+          :error="editError"
+          @save="manage"
+          @undo="app.undoManagement"
+          @viewer="state.currentViewerId = $event"
         />
         <MemoryConstellation
           v-else-if="state.viewMode === 'constellation'"
@@ -701,8 +739,10 @@ const dialogTitle = computed(
             >
               <option value="">＋ 新增记忆</option>
               <option
-                v-for="c in data.contributions.filter((c) =>
-                  moments.some((m) => m.id === c.momentId),
+                v-for="c in data.contributions.filter(
+                  (c) =>
+                    c.participantId === state.currentViewerId &&
+                    moments.some((m) => m.id === c.momentId),
                 )"
                 :key="c.id"
                 :value="c.id"

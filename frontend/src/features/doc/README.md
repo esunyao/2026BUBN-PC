@@ -11,3 +11,5 @@ import/eventGrouping.ts 提供时间、固定位置锚点与图片特征的候�
 PhotoEventImport.vue 负责候选审阅；photoAnalysis.ts 在浏览器提取真实 MobileNet 图片向量，importEvents.ts 构造已确认事件，app 负责一次性提交。legacy analyzeMedia.ts 仍是预留接口，不代表新图片嵌入功能未实现。
 
 chapterImport.ts 构造篇章内事件及待整理照片；chapterCandidates 对可信时间和未知时间分别归组。PhotoEventImport 默认自动生成并提交，手动审阅为可选。
+
+2026-10-13：MemoryManager 以 typed props/emits 提交整理操作。物品跨事件线索仅使用明确用户或 Demo 标注，星图虚线连接发现与证据，可点击跳转；人物标签需确认同意。对照默认并排，用户确认构图对齐后使用 wipe。
