@@ -99,7 +99,7 @@ export const sameMomentDetector: DiscoveryDetector = {
         .map((id) => visible.get(id)!)
         .filter((c) => c.kind === 'photo')
       if (
-        new Set(photos.map((c) => c.mediaUrl)).size < 2 ||
+        new Set(photos.map((c) => c.contentHash ?? c.mediaUrl)).size < 2 ||
         new Set(photos.map((c) => c.participantId)).size < 2 ||
         new Set(photos.map((c) => c.sceneId)).size !== 1
       )
@@ -124,7 +124,13 @@ export const sameMomentDetector: DiscoveryDetector = {
     for (const [momentId, records] of ctx.byMoment) {
       const photos = records.filter((c) => c.kind === 'photo' && validTime(c.time))
       const own = photos.find((c) => c.participantId === ctx.viewerId)
-      const other = photos.find((c) => c.participantId !== ctx.viewerId)
+      const other = photos.find(
+        (c) =>
+          c.participantId !== ctx.viewerId &&
+          own &&
+          (c.contentHash ?? c.mediaUrl) !== (own.contentHash ?? own.mediaUrl) &&
+          Math.abs(Date.parse(own.time.start!) - Date.parse(c.time.start!)) <= 15 * 60000,
+      )
       if (
         !own ||
         !other ||
@@ -158,7 +164,11 @@ export const unseenDetector: DiscoveryDetector = {
       const own = records.find((c) => c.participantId === ctx.viewerId)
       if (!own) return []
       return records
-        .filter((c) => c.participantId !== ctx.viewerId && c.mediaUrl !== own.mediaUrl)
+        .filter(
+          (c) =>
+            c.participantId !== ctx.viewerId &&
+            (c.contentHash ?? c.mediaUrl) !== (own.contentHash ?? own.mediaUrl),
+        )
         .slice(0, 1)
         .map((other) => {
           const tagged = other.tagsConsent === true && other.participantTags?.includes(ctx.viewerId)

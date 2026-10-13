@@ -286,6 +286,7 @@ export function useMemories() {
         if (
           c.kind !== 'photo' ||
           seen.has(c.participantId) ||
+          (anchor.contentHash && c.contentHash === anchor.contentHash) ||
           c.mediaUrl === anchor.mediaUrl ||
           !['exact', 'approximate'].includes(c.timeEvidence?.precision ?? '') ||
           !['exif', 'user', 'demo'].includes(c.timeEvidence?.source ?? '')

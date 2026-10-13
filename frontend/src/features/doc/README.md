@@ -15,3 +15,5 @@ chapterImport.ts 构造篇章内事件及待整理照片；chapterCandidates 对
 2026-10-13：MemoryManager 以 typed props/emits 提交整理操作。物品跨事件线索仅使用明确用户或 Demo 标注，星图虚线连接发现与证据，可点击跳转；人物标签需确认同意。对照默认并排，用户确认构图对齐后使用 wipe。
 
 2026-10-13：memoryBackup 创建包含当前引用媒体的完整 JSON（100 MB总媒体上限）；恢复验证引用完整性，使用全新 IndexedDB 键，事务写入后切换存档。HEIC 原图与预览均保留。
+
+2026-10-13：交汇/Unseen 在有原文件哈希时以 contentHash 区分照片，不能以不同 blob URL 将重复文件当作不同视角。

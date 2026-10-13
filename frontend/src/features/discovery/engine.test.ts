@@ -10,6 +10,15 @@ import {
 } from './engine'
 
 describe('discovery evidence and privacy', () => {
+  it('does not treat identical files uploaded by different owners as different perspectives', () => {
+    const d = createMemoryDemo()
+    d.contributions.forEach((c, index) => {
+      c.contentHash = 'a'.repeat(64)
+      c.mediaUrl = `blob:owner-${index}`
+    })
+    expect(sameMomentDetector.detect(indexMemory(d, 'hailing', 'a'))).toEqual([])
+    expect(unseenDetector.detect(indexMemory(d, 'hailing', 'a'))).toEqual([])
+  })
   it('detects distinct close-time owners without claiming real-world novelty or face identity', () => {
     const d = createMemoryDemo(),
       f = unseenDetector.detect(indexMemory(d, 'hailing', 'a'))
