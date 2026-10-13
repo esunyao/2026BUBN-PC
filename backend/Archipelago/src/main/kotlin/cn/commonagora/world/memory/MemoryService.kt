@@ -37,13 +37,18 @@ class MemoryService(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
     private fun validId(id: String) = id.length in 1..128 && Regex("[A-Za-z0-9_:.-]+").matches(id)
 
     fun listEvents(userId: String): List<Map<String, Any?>> {
-        val owned = jdbc.query("SELECT e.id,e.name,e.subtitle,e.event_type,e.start_at,e.end_at,e.created_at FROM events e JOIN event_members m ON m.event_id=e.id WHERE m.user_id=? ORDER BY e.created_at,e.id",
+        val rows = jdbc.query("SELECT e.id,e.name,e.subtitle,e.event_type,e.start_at,e.end_at,e.created_at FROM events e JOIN event_members m ON m.event_id=e.id WHERE m.user_id=? ORDER BY e.created_at,e.id",
             { rs, _ ->
                 val id=rs.getString(1)
-                mapOf<String,Any?>("id" to id,"name" to rs.getString(2),"title" to rs.getString(2),"subtitle" to rs.getString(3),"type" to rs.getString(4),"startAt" to rs.getString(5),"endAt" to rs.getString(6),"createdAt" to rs.getLong(7),"isDemo" to false,
-                    "sceneIds" to jdbc.query("SELECT id FROM memory_scenes WHERE event_id=? ORDER BY rowid", { row, _ -> row.getString(1) },id),
-                    "participantIds" to jdbc.query("SELECT id FROM participants WHERE event_id=? ORDER BY rowid", { row, _ -> row.getString(1) },id))
+                mapOf<String,Any?>("id" to id,"name" to rs.getString(2),"title" to rs.getString(2),"subtitle" to rs.getString(3),"type" to rs.getString(4),"startAt" to rs.getString(5),"endAt" to rs.getString(6),"createdAt" to rs.getLong(7),"isDemo" to false)
             },userId)
+        val owned = rows.map { row ->
+            val id = row["id"] as String
+            row + mapOf(
+                "sceneIds" to jdbc.query("SELECT id FROM memory_scenes WHERE event_id=? ORDER BY rowid", { rs, _ -> rs.getString(1) }, id),
+                "participantIds" to jdbc.query("SELECT id FROM participants WHERE event_id=? ORDER BY rowid", { rs, _ -> rs.getString(1) }, id)
+            )
+        }
         return demo.events.map { e -> mapOf<String,Any?>("id" to e.id,"name" to e.title,"title" to e.title,"subtitle" to e.subtitle,"type" to e.type,"startAt" to e.startAt,"endAt" to e.endAt,"createdAt" to 0L,"isDemo" to true,"sceneIds" to e.sceneIds,"participantIds" to e.participantIds) } + owned
     }
 

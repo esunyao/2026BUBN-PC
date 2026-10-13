@@ -59,6 +59,9 @@ class WorldApiTest {
         val event = postJson("/api/v1/events", token, """{"name":"共同事件"}""", 201)
         val eventId = event["id"].asText()
         val base = "/api/v1/events/$eventId"
+        mvc.perform(get("/api/v1/events").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.id == '$eventId')].id").exists())
         val author = postJson("$base/participants", token, """{"name":"旅伴","color":"#aabbcc"}""", 201)
         val photoRequest = """{"photographerId":"${author["id"].asText()}","filename":"memory.jpg","contentType":"image/jpeg","sizeBytes":42,"caption":"回忆"}"""
         val intent = postJson("$base/photos/presign", token, photoRequest, 201)

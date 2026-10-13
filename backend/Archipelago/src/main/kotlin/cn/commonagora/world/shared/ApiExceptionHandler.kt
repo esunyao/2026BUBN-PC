@@ -25,7 +25,7 @@ class ApiExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun unexpected(error: Exception): ProblemDetail {
-        log.error("API request failed: {}", error.javaClass.simpleName)
+        log.error("API request failed", error)
         return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "服务暂时无法完成请求")
     }
 }
