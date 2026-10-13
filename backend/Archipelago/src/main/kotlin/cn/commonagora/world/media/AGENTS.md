@@ -4,7 +4,7 @@ Start with [backend rules](../../../../../../../AGENTS.md); configuration, schem
 
 Owns photo upload intents, RustFS signing, server-side finalization and download URL batches. Read [doc/README.md](doc/README.md) and the root implementation contract before edits.
 
-- Use `EventAccess` for owner/participant checks and island assignment; `PhotoRows.mapper` supplies the common photo shape.
+- Use `EventAccess` for participant checks and island assignment, and MemoryAccess for membership and photo visibility; `PhotoRows.mapper` supplies the common photo shape.
 - No S3 network calls inside a database transaction. Confirm must verify staging HEAD, conditional COPY and final HEAD before the short READY transaction.
 - Signed PUT keys and final object keys are independent random keys under owner/event prefixes. Never sign PUT against the final key or accept client object keys.
 - Serialize confirmation per photo; READY confirmation must return immediately without copying or assigning another island. Current locking assumes the documented single SQLite writer deployment.

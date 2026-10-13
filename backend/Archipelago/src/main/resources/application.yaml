@@ -30,6 +30,8 @@ world:
     key-path: ${WORLD_AUTH_KEY_PATH:./data/signing-key.json}
     demo-username: ${WORLD_DEMO_USERNAME:demo}
     demo-password: ${WORLD_DEMO_PASSWORD:}
+    require-https: ${WORLD_AUTH_REQUIRE_HTTPS:false}
+    allow-local-http: ${WORLD_AUTH_ALLOW_LOCAL_HTTP:true}
   storage:
     enabled: ${WORLD_STORAGE_ENABLED:false}
     endpoint: ${WORLD_STORAGE_ENDPOINT:}
@@ -43,6 +45,12 @@ world:
     download-ttl: ${WORLD_STORAGE_DOWNLOAD_TTL:15m}
 server:
   port: ${SERVER_PORT:8080}
+  ssl:
+    enabled: ${SERVER_SSL_ENABLED:false}
+    key-store: ${SERVER_SSL_KEY_STORE:}
+    key-store-password: ${SERVER_SSL_KEY_STORE_PASSWORD:}
+    key-store-type: ${SERVER_SSL_KEY_STORE_TYPE:PKCS12}
+    key-alias: ${SERVER_SSL_KEY_ALIAS:}
   servlet:
     session:
       cookie:

@@ -30,7 +30,7 @@ data class StorageProperties(
                         uri.rawQuery == null && uri.rawFragment == null && uri.port in -1..65535
                 } == true
             }) { "Storage endpoints must be HTTP(S) URLs without credentials, queries or fragments" }
-            require(maxFileBytes > 0) { "Storage maximum file size must be positive" }
+            require(maxFileBytes >= 12582912) { "Storage maximum file size must be at least 12 MiB" }
             // SigV4 URLs may last at most seven days. Check before converting to milliseconds.
             require(listOf(uploadTtl, downloadTtl).all { it >= Duration.ofSeconds(1) && it <= Duration.ofDays(7) }) {
                 "Storage URL TTL must be between one second and seven days"
@@ -48,4 +48,18 @@ data class AuthProperties(
     val keyPath: String = "./data/signing-key.json",
     val demoUsername: String = "demo",
     val demoPassword: String = "",
-)
+    val requireHttps: Boolean = false,
+    val allowLocalHttp: Boolean = true,
+) {
+    init {
+        for (value in listOf(issuer, redirectUri, postLogoutRedirectUri, allowedOrigin)) {
+            val uri = runCatching { URI(value) }.getOrNull()
+            require(uri != null && uri.scheme in listOf("http", "https") && uri.host != null && uri.rawUserInfo == null) {
+                "Auth URLs must be HTTP(S) URLs without embedded credentials"
+            }
+            if (requireHttps) require(uri.scheme == "https" || (allowLocalHttp && uri.host in listOf("localhost", "127.0.0.1", "::1", "[::1]"))) {
+                "HTTPS is required for auth URLs; configure HTTPS URLs or enable local HTTP for loopback development"
+            }
+        }
+    }
+}
