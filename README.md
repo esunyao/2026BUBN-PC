@@ -1,8 +1,6 @@
-# Shared Moment World · 共同时刻世界
+# 共同记忆 · Shared Memories
 
-把共同旅行中的地点组成像素群岛，抵达岛屿后查看不同旅伴留下的照片。这是一个 Vue 纯前端原型，示例旅行和照片为虚构素材。
-
-当前 UI 和核心体验仍需大幅调整，现有版本用于保留原型与开发结构；技术检查通过不代表产品方案已完成验收。
+照片优先的 Vue 3 + TypeScript 交互体验。Home → Event → Scene / Focus，人物显影、交汇时刻、时间轴、昨日与今日、记忆星图和四种自适应环境可独立演示；新增 Discover、其他作者视角与无照片时段补写。后端沿用 Kotlin / Spring Boot / Java 21 架构。
 
 ## 1. 准备环境
 
@@ -29,7 +27,7 @@ pnpm --version
 ## 2. 克隆并启动前端
 
 ```sh
-git clone https://github.com/esunyao/2026BUBN-PC.git
+git clone --branch feat/shared-memories-hero https://github.com/esunyao/2026BUBN-PC.git
 cd 2026BUBN-PC/frontend
 pnpm install --frozen-lockfile
 pnpm dev
@@ -37,7 +35,9 @@ pnpm dev
 
 打开终端中 Vite 输出的地址。首次安装需要下载依赖，按 Ctrl+C 停止开发服务。当前演示在浏览器本地运行，无需后端、数据库、API 密钥或 .env 配置。
 
-导入照片前选择拍摄者；图片只保留在当前页面会话，刷新恢复示例旅行。具体操作见 [MVP 演示说明](doc-bg/20261013mvp/README.md)。
+在 Scene 点击“留下记忆”，选择人物、时刻与心情，上传本地照片或写入原文。照片存于 IndexedDB，文字与配置存于 localStorage，刷新仍保留。导出 JSON 只包含文字与配置，不包含照片文件。
+
+90 秒路线：海陵岛之旅 → 海边漫步 → 人物切换 → 日落 Focus → 另一双眼睛 → 时间轴与 2x 回放 → 元旦晚会 → 昨日与今日 → 星图点选。详见 [实现说明](IMPLEMENTATION_NOTES.md)、[素材署名](ASSET_CREDITS.md)。全部图片本地托管，示例叙述、人物与时间明确标为 Demo，不代表真实同一次活动。
 
 ## 3. 检查、构建与预览
 
@@ -68,7 +68,13 @@ cp .env.example .env
 
 首次复制后需先编辑 .env 并填写初始演示密码，已有 .env 不要覆盖。Windows PowerShell 或命令提示符使用 .\gradlew.bat。详细配置、RustFS 准备及验收结果见 [后端 README](backend/Archipelago/README.md)，字段见 [OpenAPI](backend/Archipelago/doc/openapi.yaml) 与 [数据库说明](backend/Archipelago/doc/database.md)。
 
-## 5. 阅读项目
+## 5. Discovery 与后端协作
+
+在 Event 或 Scene 点击“记忆发现 / Discover”，筛选照片证据、关联解释和原文。Unseen 支持 A/B/并看、收藏/隐藏/恢复；Missing Pieces 支持多人分别为同一时段补写，形成 text-only Moment，联动时间轴、便笺与星图，刷新保留。
+
+已实现 sameMoment / unseen / gap / sceneEvolution 及后台阶段 Demo；memory_thread 仅保留契约。识别标签为 Mock/手工标注，用户图片只使用真实 EXIF 或手动时刻；没有真实 AI 推理。后端契约见 [BACKEND_COLLABORATION](BACKEND_COLLABORATION.md)，已通过 [Issue #1](https://github.com/esunyao/2026BUBN-PC/issues/1) 指派给 esunyao。
+
+## 6. 阅读项目
 
 | 内容 | 入口 |
 | --- | --- |

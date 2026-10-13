@@ -1,38 +1,15 @@
-# Shared Moment World
+# 共同记忆前端
 
-纯前端的共同时刻世界 MVP：像素群岛承载地点，照片记录共同旅行。演示数据和图片为虚构素材。当前原型 UI 与核心体验尚未完成用户验收，检查通过不代表最终产品已获认可。
-
-## 初始化环境
-
-推荐安装 [Node.js 24 LTS](https://nodejs.org/en/download)，版本至少为 **24.12.0**；安装包包含 npm。项目允许的完整 Node 范围为 `^22.18.0 || >=24.12.0`，以 [package.json](package.json) 为准。
-
-安装后重新打开终端，先检查 Node 与 npm，再安装项目固定版本 **pnpm 10.28.1**。安装方式可参考 [pnpm 官方说明](https://pnpm.io/installation)。
-
-```sh
-node --version
-npm --version
-npm install --global pnpm@10.28.1
-pnpm --version
-```
-
-确认 Node 符合上述范围、npm 能正常运行、pnpm 输出 `10.28.1`。从仓库根目录进入前端并安装锁定依赖：
+Vue 3 + strict TypeScript + Vite，沿用 pnpm 10.28.1；Node 范围以 package.json 为准（本轮使用 22.23.2）。
 
 ```sh
 cd frontend
+npm install -g pnpm@10.28.1
 pnpm install --frozen-lockfile
-```
-
-首次安装需要网络下载依赖。后续命令均在 `frontend/` 下执行。
-
-## 开发与预览
-
-```sh
 pnpm dev
 ```
 
-打开 Vite 在终端输出的本地地址；按 `Ctrl+C` 停止服务。当前演示完全在浏览器本地运行，**不需要启动后端，也不需要 `.env` 或 API 密钥**。
-
-检查与生产构建：
+默认 http://localhost:5173，无需后端、数据库、账户或 API key。生产部署需为 /events/* 配置 SPA 回退至 index.html。
 
 ```sh
 pnpm lint
@@ -40,49 +17,36 @@ pnpm format:check
 pnpm test
 pnpm type-check
 pnpm build
-```
-
-`pnpm build` 同时执行类型检查与生产打包，输出到 `dist/`。构建后可启动本地预览：
-
-```sh
 pnpm preview
 ```
 
-预览地址仍以终端输出为准；它用于本地检查构建产物。
+若终端仍命中旧 Node，使用 `type -a node npm pnpm` 检查 PATH，重新打开终端并使用已安装的新版 Node；Windows Git Bash 可将 `/c/Program Files/nodejs` 置于 PATH 前部。
 
-## 旧 Node 与终端路径排查
+## 演示路线
 
-若安装新版 Node 后仍显示 Node 12，或 pnpm 出现 `Unexpected token '.'`、Node 版本不受支持等错误，先在 Git Bash 或 WSL 检查实际命中的程序：
+海陵岛之旅 → 海边漫步（日落默认时刻）→ 透过你的眼睛切换人物 → 点击相纸进入 Focus → 另一双眼睛进入交汇 → 切第三人/放大/返回 → 拖动或点击时间轴、播放及 2x → 元旦晚会 → 昨日与今日 → 星图节点目录/平移/缩放/跳回照片。环境按钮预览海边、山野、城市、晚会，随场景按钮恢复自动环境。
 
-```sh
-type -a node npm pnpm
-node --version
-npm --version
-```
+“留下记忆”支持新增与编辑原文、改派人物/时刻、心情、本地照片，复用 EXIF 解析。图片存于 IndexedDB，文本与配置存于 localStorage，刷新恢复；最大 12 MB，JPEG/PNG/WebP。无 EXIF 的时间位置保持未知，所属时刻由用户选择。创建篇章、JSON 导入/导出可使用；导出不含照片文件，跨浏览器缺图需重新上传。
 
-- **Windows Git Bash**：重新打开终端，确认 Windows Node 安装目录位于 PATH 中旧版本之前。使用默认安装位置时，可在当前 Git Bash 临时修正路径：
+## 代码与真实性
 
-  ```sh
-  export PATH="/c/Program Files/nodejs:$PATH"
-  hash -r
-  node --version
-  npm --version
-  npm install --global pnpm@10.28.1
-  pnpm --version
-  ```
+- app/memoryDemo.ts：两套事件的标准化 Mock；人物、日期、文字与关联为演示数据。
+- app/useMemories.ts：统一运行状态、深链接和存储。
+- features/hero/：照片、交汇、对照、时间轴、环境及星图组件。
+- public/demo-assets/：本地真实摄影、低分辨率版本、SVG 纹理/装饰和 fallback。
+- 原图来源和许可：[ASSET_CREDITS](../ASSET_CREDITS.md)。不代表真实海陵岛、同一地点或同一次活动。
+- 架构与降级：[IMPLEMENTATION_NOTES](../IMPLEMENTATION_NOTES.md)。原地图模块留存，当前主入口使用 Hero。
 
-  自定义安装位置应替换第一行路径。该修改仅影响当前终端；长期使用请调整 Windows 的 PATH，然后重新打开终端。
+没有真实 AI 推理、多人同步、服务端照片存储或 3D 地形重建；后台沿用仓库 Kotlin/Spring 架构，未来仅通过 adapter 接入。
 
-- **WSL**：Windows 安装的 Node 不会替换 WSL 的 `/usr/bin/node`。按 Node 官方安装页在 WSL 内安装 Linux 版 Node 24 LTS，将其 `bin` 目录放到 WSL PATH 中旧 Node 之前，然后执行 `hash -r` 并重新检查版本。使用同一套 Linux Node/npm 安装 `pnpm@10.28.1`，避免混用 `/mnt/c/` 下的 Windows npm/pnpm 与 WSL 的旧 Node；也可改在 Windows Git Bash 完成上面的初始化步骤。
+## Memory Discovery 增量
 
-环境切换后，在选定环境中重新执行 `pnpm install --frozen-lockfile`，让平台相关依赖与运行环境一致。
+入口 `/events/hailing/discover` 与 `/events/gala/discover`，支持 `?finding=<stable ID>` 深链。Home 数量、Scene 入口、Timeline 空白标记和星图发现入口来自同一 Findings。按类型、场景和记录者筛选，也可切换演示身份。
 
-## 照片与会话限制
+路线：日落 → 记忆发现 → 日落 Unseen → A/B/并看 → 查看依据 → 收藏/关闭/返回（保留人物、照片、主题、时刻、滚动位置）。尚未讲述 → 输入 1–500 字 → 保存 → 另一 Demo 身份为同一 gap 补写 → 两份独立原文 → Scene 文字时间节点/便笺/星图 → 刷新。晚会有准备/舞台/后台阶段及演出前 Gap。
 
-每批导入先选择一位拍摄者。浏览器可显示的 JPEG、PNG、WebP 会在本地解析；缺少 GPS 的照片可手动安放。导入照片及新地点只保留在当前页面会话内，**刷新页面后恢复虚构示例**，没有上传、跨设备同步或持久保存。
+`features/discovery/engine.ts` 先按权限过滤、建立 scene/moment 索引，再检测、去重、排序；`app/useDiscovery.ts` 协调反馈与原文。Gap 为明确事件范围内、同日 07:00–22:00、60–240 分钟、每事件最多 3 条，不以照片缺失断言重要事件。当前身份只能编辑/删除自己的 Gap 原文。Demo 身份切换不是生产鉴权，后端必须检查账号与事件成员权限。
 
-## 阅读入口
+MockVisionAnalysisProvider 仅返回 Demo 手工阶段标签；用户上传不调用模型。ImageAnalysisProvider 的批量契约见 [后端协作](../BACKEND_COLLABORATION.md)。Thread 仅契约，缺可靠同物体证据就不生成发现。当前保存可编辑版本，不提供历史版本 UI，生产审计由后端补齐。
 
-- [前端协作规范](AGENTS.md)
-- [架构、使用与验证](doc/README.md)
-- [MVP 模拟图与演示](../doc-bg/20261013mvp/README.md)
+验证为 30 项 Vitest、lint/format/type/build；浏览器验收见 [记录](doc/verification.md)。没有新增 Playwright 测试包，浏览器操作通过现有 CUA 的 Playwright locator 与原生截图接口执行。

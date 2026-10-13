@@ -34,8 +34,9 @@ jobs:
           chat-token: ${{ secrets.CHAT_TOKEN }}
 
           # 模型与接口：默认使用官方 DeepSeek API
-          # 可换成 deepseek-reasoner 获得更强的推理能力（更慢、更贵）
-          model: deepseek-v4-flash
+          # deepseek-flash 当前对应 DeepSeek-V4.1-Flash（1M 上下文）
+          # 可换成 deepseek-v4-pro 获得更强的审查质量（更慢、更贵）
+          model: deepseek-flash
           base-url: https://api.deepseek.com
 
           # 评论中命中该字符串即触发审查（仅 OWNER/MEMBER/COLLABORATOR 有效）
